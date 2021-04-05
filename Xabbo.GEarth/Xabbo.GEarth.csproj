@@ -6,4 +6,8 @@
     <RootNamespace>Xabbo</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Xabbo.Common\Xabbo.Common\Xabbo.Common.csproj" />
+  </ItemGroup>
+
 </Project>
