@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Buffers.Binary;
-using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -16,6 +15,8 @@ namespace Xabbo.Interceptor.GEarth
 {
     public class GEarthRemoteInterceptor : IRemoteInterceptor
     {
+        private const int DEFAULT_PORT = 9092;
+
         private static readonly Encoding _encoding = Encoding.Latin1;
         private static readonly byte[]
             _toClientBytes = _encoding.GetBytes("TOCLIENT"),
@@ -48,12 +49,8 @@ namespace Xabbo.Interceptor.GEarth
             ExtensionConsoleLog = 98
         }
 
-        private readonly string _messagesPath;
-
         private TcpClient? _client;
         private NetworkStream? _ns;
-
-        private MessageManager? _messages;
 
         public event EventHandler? InterceptorConnected;
         public event EventHandler? InterceptorDisconnected;
@@ -66,7 +63,7 @@ namespace Xabbo.Interceptor.GEarth
         public int Port { get; private set; }
         public GEarthOptions Options { get; }
 
-        public IMessageManager Messages => _messages ?? throw new InvalidOperationException("Message manager is unavailable");
+        public IMessageManager Messages { get; }
         public IInterceptorBinder Binder { get; }
         public ClientType ClientType { get; private set; }
 
@@ -74,12 +71,12 @@ namespace Xabbo.Interceptor.GEarth
         public bool IsConnected => _client?.Connected ?? false;
         public bool IsGameConnected { get; private set; }
 
-        public GEarthRemoteInterceptor(IConfiguration config, GEarthOptions options)
+        public GEarthRemoteInterceptor(IConfiguration config, IMessageManager messages, GEarthOptions options)
         {
-            _messagesPath = config.GetValue("Interceptor:MessagesPath", "messages.ini");
-
-            Port = config.GetValue("Interceptor:Port", 9092);
+            Messages = messages;
             Options = options;
+
+            Port = config.GetValue("Interceptor:Port", DEFAULT_PORT);
 
             Binder = new InterceptorBinder(this);
             ClientType = ClientType.Unknown;
@@ -227,8 +224,7 @@ namespace Xabbo.Interceptor.GEarth
             short headerValue = BinaryPrimitives.ReadInt16BigEndian(packetData.AsSpan()[4..6]);
 
             Header? header = new Header(dest, headerValue, null);
-            if (_messages is null ||
-                !_messages.TryGetHeaderByValue(dest, headerValue, out header))
+            if (!Messages.TryGetHeaderByValue(dest, headerValue, out header))
             {
                 header = new Header(dest, headerValue, null);
             }
@@ -276,13 +272,19 @@ namespace Xabbo.Interceptor.GEarth
             string clientType = packet.ReadString();
 
             if (clientType.StartsWith("UNITY"))
+            {
                 ClientType = ClientType.Unity;
+            }
             else if (clientType.StartsWith("FLASH"))
+            {
                 ClientType = ClientType.Flash;
+            }
             else
+            {
                 ClientType = ClientType.Unknown;
+            }
 
-            _messages = new MessageManager(ClientType, _messagesPath, harblePath);
+            Messages.Load(ClientType, harblePath);
 
             Connected?.Invoke(this, new GameConnectedEventArgs(host, port, version, harblePath, clientType));
             return Task.CompletedTask;
@@ -308,6 +310,7 @@ namespace Xabbo.Interceptor.GEarth
             packet.CopyTo(buffer.Span[6..]);
 
             NetworkStream? ns = _ns;
+
             if (ns is null)
             {
                 return false;
