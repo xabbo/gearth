@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 
 using Xabbo.Messages;
-using Xabbo.Interceptor.Binding;
+using Xabbo.Interceptor.Dispatcher;
 
 namespace Xabbo.Interceptor.GEarth
 {
@@ -64,7 +64,7 @@ namespace Xabbo.Interceptor.GEarth
         public GEarthOptions Options { get; }
 
         public IMessageManager Messages { get; }
-        public IInterceptorBinder Binder { get; }
+        public IInterceptDispatcher Dispatcher { get; }
         public ClientType ClientType { get; private set; }
 
         public bool IsRunning { get; private set; }
@@ -78,7 +78,7 @@ namespace Xabbo.Interceptor.GEarth
 
             Port = config.GetValue("Interceptor:Port", DEFAULT_PORT);
 
-            Binder = new InterceptorBinder(this);
+            Dispatcher = new InterceptDispatcher(messages);
             ClientType = ClientType.Unknown;
         }
 
@@ -232,6 +232,14 @@ namespace Xabbo.Interceptor.GEarth
             Packet interceptedPacket = new Packet(header, packetData.AsSpan()[6..]);
 
             using var args = new InterceptArgs(dest, ClientType, index, interceptedPacket);
+
+            if (args.IsIncoming)
+            {
+                Dispatcher.DispatchMessage(this, args.Packet);
+            }
+
+            Dispatcher.DispatchIntercept(args);
+
             Intercepted?.Invoke(this, args);
 
             var response = new Packet((short)Outgoing.ManipulatedPacket);
