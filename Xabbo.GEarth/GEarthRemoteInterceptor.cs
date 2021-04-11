@@ -10,12 +10,15 @@ using Microsoft.Extensions.Configuration;
 
 using Xabbo.Messages;
 using Xabbo.Interceptor.Dispatcher;
+using System.Threading;
 
 namespace Xabbo.Interceptor.GEarth
 {
     public class GEarthRemoteInterceptor : IRemoteInterceptor
     {
-        private const int DEFAULT_PORT = 9092;
+        private const int
+            DEFAULT_PORT = 9092,
+            CONNECT_INTERVAL = 1000;
 
         private static readonly Encoding _encoding = Encoding.Latin1;
         private static readonly byte[]
@@ -52,6 +55,8 @@ namespace Xabbo.Interceptor.GEarth
         private TcpClient? _client;
         private NetworkStream? _ns;
 
+        private CancellationTokenSource? _cancellation;
+
         public event EventHandler? InterceptorConnected;
         public event EventHandler? InterceptorDisconnected;
         public event EventHandler? Initialized;
@@ -87,52 +92,61 @@ namespace Xabbo.Interceptor.GEarth
             if (IsRunning) return;
             IsRunning = true;
 
-            Task.Run(() => HandleInterceptorAsync());
+            _cancellation = new CancellationTokenSource();
+            Task.Run(() => HandleInterceptorAsync(_cancellation.Token));
         }
 
         public void Stop()
         {
             if (!IsRunning) return;
 
-            try  { _client?.Close(); }
-            catch { }
+            _cancellation?.Cancel();
+            _cancellation = null;
         }
 
-        private async Task HandleInterceptorAsync()
+        private async Task HandleInterceptorAsync(CancellationToken cancellationToken)
         {
             try
             {
-                while (true)
+                while (!cancellationToken.IsCancellationRequested)
                 {
                     try
                     {
                         _client = new TcpClient();
-                        await _client.ConnectAsync(IPAddress.Loopback, Port);
-                        InterceptorConnected?.Invoke(this, EventArgs.Empty);
+                        await _client.ConnectAsync(IPAddress.Loopback, Port, cancellationToken);
                     }
                     catch
                     {
-                        await Task.Delay(1000);
+                        await Task.Delay(CONNECT_INTERVAL, cancellationToken);
                         continue;
                     }
 
+                    InterceptorConnected?.Invoke(this, EventArgs.Empty);
+
                     try
                     {
-                        await HandlePacketsAsync(_ns = _client.GetStream());
+                        await HandlePacketsAsync(_ns = _client.GetStream(), cancellationToken);
                     }
-                    catch
+                    catch when (!cancellationToken.IsCancellationRequested)
                     {
                         InterceptorDisconnected?.Invoke(this, EventArgs.Empty);
                     }
+                    finally
+                    {
+                        _client?.Close();
+                        _ns = null;
+                    }
                 }
             }
+            catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested) { }
             finally
             {
                 IsRunning = false;
             }
         }
 
-        private async Task HandlePacketsAsync(NetworkStream stream)
+        private async Task HandlePacketsAsync(NetworkStream stream, CancellationToken cancellationToken)
         {
             Memory<byte> buffer = new byte[4];
             int totalRead;
@@ -142,7 +156,7 @@ namespace Xabbo.Interceptor.GEarth
                 totalRead = 0;
                 while (totalRead < 4)
                 {
-                    int read = await stream.ReadAsync(buffer[totalRead..]);
+                    int read = await stream.ReadAsync(buffer[totalRead..], cancellationToken);
                     if (read <= 0) throw new EndOfStreamException();
                     totalRead += read;
                 }
@@ -155,13 +169,14 @@ namespace Xabbo.Interceptor.GEarth
                 totalRead = 0;
                 while (totalRead < packetData.Length)
                 {
-                    int read = await stream.ReadAsync(packetMemory[totalRead..]);
+                    int read = await stream.ReadAsync(packetMemory[totalRead..], cancellationToken);
                     if (read <= 0) throw new EndOfStreamException();
                     totalRead += read;
                 }
 
                 short header = BinaryPrimitives.ReadInt16BigEndian(packetMemory.Span[0..]);
                 var packet = new Packet(header, packetData.AsSpan()[2..]);
+
                 await HandlePacketAsync(packet);
             }
         }
@@ -202,7 +217,7 @@ namespace Xabbo.Interceptor.GEarth
             response.WriteBool(Options.CanLeave);
             response.WriteBool(Options.CanDelete);
 
-            return SendAsync(response).AsTask();
+            return SendAsync(response);
         }
 
         private async Task OnPacketIntercept(IReadOnlyPacket packet)
@@ -310,7 +325,7 @@ namespace Xabbo.Interceptor.GEarth
             return Task.CompletedTask;
         }
 
-        public async ValueTask<bool> SendAsync(IReadOnlyPacket packet)
+        public Task SendAsync(IReadOnlyPacket packet)
         {
             Memory<byte> buffer = new byte[packet.Length + 6];
             BinaryPrimitives.WriteInt32BigEndian(buffer.Span[0..4], 2 + packet.Length);
@@ -321,23 +336,22 @@ namespace Xabbo.Interceptor.GEarth
 
             if (ns is null)
             {
-                return false;
+                return Task.CompletedTask;
             }
             else
             {
-                await ns.WriteAsync(buffer);
-                return true;
+                return ns.WriteAsync(buffer).AsTask();
             }
         }
 
-        public ValueTask<bool> SendToServerAsync(Header header, params object[] values) => SendToServerAsync(Packet.Compose(ClientType, header, values));
-        public ValueTask<bool> SendToServerAsync(IReadOnlyPacket packet) => SendToAsync(Destination.Server, packet);
-        public ValueTask<bool> SendToClientAsync(Header header, params object[] values) => SendToClientAsync(Packet.Compose(ClientType, header, values));
-        public ValueTask<bool> SendToClientAsync(IReadOnlyPacket packet) => SendToAsync(Destination.Client, packet);
+        public Task SendToServerAsync(Header header, params object[] values) => SendToServerAsync(Packet.Compose(ClientType, header, values));
+        public Task SendToServerAsync(IReadOnlyPacket packet) => SendToAsync(Destination.Server, packet);
+        public Task SendToClientAsync(Header header, params object[] values) => SendToClientAsync(Packet.Compose(ClientType, header, values));
+        public Task SendToClientAsync(IReadOnlyPacket packet) => SendToAsync(Destination.Client, packet);
 
-        private ValueTask<bool> SendToAsync(Destination destination, IReadOnlyPacket packet)
+        private Task SendToAsync(Destination destination, IReadOnlyPacket packet)
         {
-            if (!IsGameConnected) return ValueTask.FromResult(false);
+            if (!IsGameConnected) return Task.CompletedTask;
 
             Packet requestPacket = new((short)Outgoing.SendMessage);
             requestPacket.WriteByte(destination == Destination.Server ? 1 : 0);
