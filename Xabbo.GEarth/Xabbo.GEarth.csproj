@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Xabbo.Common\Xabbo.Common\Xabbo.Common.csproj" />
+    <ProjectReference Include="$(SolutionDir)\Xabbo.Common\Xabbo.Common\Xabbo.Common.csproj" />
   </ItemGroup>
 
 </Project>
