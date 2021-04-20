@@ -4,13 +4,15 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Configuration;
 
 using Xabbo.Messages;
 using Xabbo.Interceptor.Dispatcher;
-using System.Threading;
+
+using Xabbo.GEarth;
 
 namespace Xabbo.Interceptor.GEarth
 {
@@ -84,7 +86,16 @@ namespace Xabbo.Interceptor.GEarth
             Port = config.GetValue("Interceptor:Port", DEFAULT_PORT);
 
             Dispatcher = new InterceptDispatcher(messages);
-            ClientType = ClientType.Unknown;
+        }
+
+        public GEarthRemoteInterceptor(IMessageManager messages, GEarthOptions options, int port)
+        {
+            Messages = messages;
+            Options = options;
+
+            Port = port;
+
+            Dispatcher = new InterceptDispatcher(messages);
         }
 
         public void Start()
@@ -133,6 +144,8 @@ namespace Xabbo.Interceptor.GEarth
                     }
                     finally
                     {
+                        IsGameConnected = false;
+                        Dispatcher.ReleaseAll();
                         _client?.Close();
                         _ns = null;
                     }
@@ -309,12 +322,16 @@ namespace Xabbo.Interceptor.GEarth
 
             Messages.Load(ClientType, harblePath);
 
+            IsGameConnected = true;
+
             Connected?.Invoke(this, new GameConnectedEventArgs(host, port, version, harblePath, clientType));
             return Task.CompletedTask;
         }
 
         private Task OnConnectionEnd(IReadOnlyPacket packet)
         {
+            IsGameConnected = false;
+            Dispatcher.ReleaseAll();
             Disconnected?.Invoke(this, EventArgs.Empty);
             return Task.CompletedTask;
         }
