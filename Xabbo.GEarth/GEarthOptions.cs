@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Xabbo.Interceptor.GEarth
+namespace Xabbo.GEarth
 {
     public class GEarthOptions
     {
