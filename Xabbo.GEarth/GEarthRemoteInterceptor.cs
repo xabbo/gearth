@@ -257,7 +257,10 @@ namespace Xabbo.Interceptor.GEarth
                 header = new Header(dest, headerValue, null);
             }
 
-            Packet interceptedPacket = new Packet(header, packetData.AsSpan()[6..]);
+            Packet interceptedPacket = new Packet(header, packetData.AsSpan()[6..])
+            {
+                Protocol = ClientType
+            };
 
             using var args = new InterceptArgs(dest, ClientType, index, interceptedPacket);
 
