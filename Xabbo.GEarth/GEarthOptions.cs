@@ -8,11 +8,12 @@ namespace Xabbo.GEarth
         public string Author { get; init; }
         public string Version { get; init; }
         public string Description { get; init; }
+        public bool FireEventButtonVisible { get; init; }
+        public bool IsInstalledExtension { get; init; }
         public string FilePath { get; init; }
         public string Cookie { get; init; }
-        public bool EnableOnClick { get; init; }
-        public bool CanLeave { get; init; }
-        public bool CanDelete { get; init; }
+        public bool LeaveButtonVisible { get; init; }
+        public bool DeleteButtonVisible { get; init; }
 
         public GEarthOptions()
         {

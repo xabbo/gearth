@@ -42,8 +42,8 @@ namespace Xabbo.GEarth
         public Incoming In => Messages.In;
         public Outgoing Out => Messages.Out;
 
-        public bool IsInterceptorConnected => Interceptor.IsConnected;
-        public bool IsGameConnected => Interceptor.IsGameConnected;
+        public bool IsInterceptorConnected => Interceptor.IsInterceptorConnected;
+        public bool IsGameConnected => Interceptor.IsConnected;
 
         /// <summary>
         /// Sends a message to the server.
@@ -75,7 +75,7 @@ namespace Xabbo.GEarth
             Interceptor.Disconnected += OnGameDisconnected;
             Interceptor.InterceptorDisconnected += OnInterceptorDisconnected;
 
-            Interceptor.Start();
+            Interceptor.RunAsync();
         }
 
         protected virtual void OnInterceptorConnected(object? sender, EventArgs e)

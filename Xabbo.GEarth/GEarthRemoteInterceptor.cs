@@ -6,13 +6,13 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 using Microsoft.Extensions.Configuration;
 
+using Xabbo.GEarth;
 using Xabbo.Messages;
 using Xabbo.Interceptor.Dispatcher;
-
-using Xabbo.GEarth;
 
 namespace Xabbo.Interceptor.GEarth
 {
@@ -61,7 +61,7 @@ namespace Xabbo.Interceptor.GEarth
 
         public event EventHandler? InterceptorConnected;
         public event EventHandler? InterceptorDisconnected;
-        public event EventHandler? Initialized;
+        public event EventHandler<InterceptorInitializedEventArgs>? Initialized;
         public event EventHandler<GameConnectedEventArgs>? Connected;
         public event EventHandler? Disconnected;
         public event EventHandler<InterceptArgs>? Intercepted;
@@ -72,11 +72,12 @@ namespace Xabbo.Interceptor.GEarth
 
         public IMessageManager Messages { get; }
         public IInterceptDispatcher Dispatcher { get; }
+        public string ClientIdentifier { get; private set; } = string.Empty;
         public ClientType ClientType { get; private set; }
 
         public bool IsRunning { get; private set; }
-        public bool IsConnected => _client?.Connected ?? false;
-        public bool IsGameConnected { get; private set; }
+        public bool IsInterceptorConnected { get; private set; }
+        public bool IsConnected { get; private set; }
 
         public GEarthRemoteInterceptor(IConfiguration config, IMessageManager messages, GEarthOptions options)
         {
@@ -98,13 +99,13 @@ namespace Xabbo.Interceptor.GEarth
             Dispatcher = new InterceptDispatcher(messages);
         }
 
-        public void Start()
+        public Task RunAsync()
         {
-            if (IsRunning) return;
-            IsRunning = true;
+            if (IsRunning)
+                throw new InvalidOperationException("The interceptor service is already running.");
 
             _cancellation = new CancellationTokenSource();
-            Task.Run(() => HandleInterceptorAsync(_cancellation.Token));
+            return HandleInterceptorAsync(_cancellation.Token);
         }
 
         public void Stop()
@@ -119,43 +120,57 @@ namespace Xabbo.Interceptor.GEarth
         {
             try
             {
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    try
-                    {
-                        _client = new TcpClient();
-                        await _client.ConnectAsync(IPAddress.Loopback, Port, cancellationToken);
-                    }
-                    catch
-                    {
-                        await Task.Delay(CONNECT_INTERVAL, cancellationToken);
-                        continue;
-                    }
+                IsRunning = true;
 
-                    InterceptorConnected?.Invoke(this, EventArgs.Empty);
-
-                    try
-                    {
-                        await HandlePacketsAsync(_ns = _client.GetStream(), cancellationToken);
-                    }
-                    catch when (!cancellationToken.IsCancellationRequested)
-                    {
-                        InterceptorDisconnected?.Invoke(this, EventArgs.Empty);
-                    }
-                    finally
-                    {
-                        IsGameConnected = false;
-                        Dispatcher.ReleaseAll();
-                        _client?.Close();
-                        _ns = null;
-                    }
-                }
+                _client = await ConnectAsync(cancellationToken);
+                InterceptorConnected?.Invoke(this, EventArgs.Empty);
+                
+                await HandlePacketsAsync(_ns = _client.GetStream(), cancellationToken);
             }
-            catch (OperationCanceledException)
-            when (cancellationToken.IsCancellationRequested) { }
             finally
             {
                 IsRunning = false;
+
+                Dispatcher.ReleaseAll();
+
+                _client?.Close();
+                _client = null;
+                _ns = null;
+
+                if (IsInterceptorConnected)
+                {
+                    IsInterceptorConnected = false;
+
+                    if (IsConnected)
+                    {
+                        IsConnected = false;
+                        Disconnected?.Invoke(this, EventArgs.Empty);
+                    }
+
+                    InterceptorDisconnected?.Invoke(this, EventArgs.Empty);
+                }
+            }
+        }
+
+        private async Task<TcpClient> ConnectAsync(CancellationToken cancellationToken)
+        {
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                TcpClient client = new();
+
+                try
+                {
+                    await client.ConnectAsync(IPAddress.Loopback, Port, cancellationToken);
+                }
+                catch
+                {
+                    await Task.Delay(CONNECT_INTERVAL, cancellationToken);
+                    continue;
+                }
+
+                return client;
             }
         }
 
@@ -223,12 +238,12 @@ namespace Xabbo.Interceptor.GEarth
             response.WriteString(Options.Author);
             response.WriteString(Options.Version);
             response.WriteString(Options.Description);
-            response.WriteBool(Options.EnableOnClick);
+            response.WriteBool(Options.FireEventButtonVisible);
             response.WriteBool(!string.IsNullOrWhiteSpace(Options.FilePath));
             response.WriteString(Options.FilePath);
             response.WriteString(Options.Cookie);
-            response.WriteBool(Options.CanLeave);
-            response.WriteBool(Options.CanDelete);
+            response.WriteBool(Options.LeaveButtonVisible);
+            response.WriteBool(Options.DeleteButtonVisible);
 
             return SendAsync(response);
         }
@@ -306,34 +321,55 @@ namespace Xabbo.Interceptor.GEarth
         {
             string host = packet.ReadString();
             int port = packet.ReadInt();
-            string version = packet.ReadString();
-            string harblePath = packet.ReadString();
+            string clientVersion = packet.ReadString();
+            string clientIdentifier = packet.ReadString();
             string clientType = packet.ReadString();
 
-            if (clientType.StartsWith("UNITY"))
+            int n = packet.ReadInt();
+            List<MessageInfo> messages = new(n);
+            for (int i = 0; i < n; i++)
             {
-                ClientType = ClientType.Unity;
-            }
-            else if (clientType.StartsWith("FLASH"))
-            {
-                ClientType = ClientType.Flash;
-            }
-            else
-            {
-                ClientType = ClientType.Unknown;
+                int id = packet.ReadInt();
+                string hash = packet.ReadString();
+                string name = packet.ReadString();
+                string structure = packet.ReadString();
+                bool isOutgoing = packet.ReadBool();
+                string source = packet.ReadString();
+
+                messages.Add(new MessageInfo
+                {
+                    Direction = isOutgoing ? Direction.Outgoing : Direction.Incoming,
+                    Header = (short)id,
+                    Name = name
+                });
             }
 
-            Messages.Load(ClientType, harblePath);
+            ClientIdentifier = clientIdentifier;
 
-            IsGameConnected = true;
+            if (clientType.StartsWith("Unity", StringComparison.OrdinalIgnoreCase)) ClientType = ClientType.Unity;
+            else if (clientType.StartsWith("Flash", StringComparison.OrdinalIgnoreCase)) ClientType = ClientType.Flash;
+            else ClientType = ClientType.Unknown;
 
-            Connected?.Invoke(this, new GameConnectedEventArgs(host, port, version, harblePath, clientType));
+            Messages.LoadMessages(ClientType, messages);
+
+            IsConnected = true;
+
+            Connected?.Invoke(this, new GameConnectedEventArgs()
+            {
+                Host = host,
+                Port = port,
+                ClientVersion = clientVersion,
+                ClientIdentifier = clientIdentifier,
+                ClientType = ClientType,
+                Messages = messages
+            });
+
             return Task.CompletedTask;
         }
 
         private Task OnConnectionEnd(IReadOnlyPacket packet)
         {
-            IsGameConnected = false;
+            IsConnected = false;
             Dispatcher.ReleaseAll();
             Disconnected?.Invoke(this, EventArgs.Empty);
             return Task.CompletedTask;
@@ -341,7 +377,9 @@ namespace Xabbo.Interceptor.GEarth
 
         private Task OnInit(IReadOnlyPacket packet)
         {
-            Initialized?.Invoke(this, EventArgs.Empty);
+            bool? isGameConnected = packet.Available > 0 ? packet.ReadBool() : null;
+
+            Initialized?.Invoke(this, new InterceptorInitializedEventArgs(isGameConnected));
             return Task.CompletedTask;
         }
 
@@ -371,12 +409,12 @@ namespace Xabbo.Interceptor.GEarth
 
         private Task SendToAsync(Destination destination, IReadOnlyPacket packet)
         {
-            if (!IsGameConnected) return Task.CompletedTask;
+            if (!IsConnected) return Task.CompletedTask;
 
             Packet requestPacket = new((short)Outgoing.SendMessage);
             requestPacket.WriteByte(destination == Destination.Server ? 1 : 0);
-            requestPacket.WriteInt(6 + packet.Length);
-            requestPacket.WriteInt(2 + packet.Length);
+            requestPacket.WriteInt(6 + packet.Length); // Packet length (length + header + data)
+            requestPacket.WriteInt(2 + packet.Length); // Packet length (header + data)
             requestPacket.WriteShort(packet.Header);
             requestPacket.WriteBytes(packet.GetBuffer().Span);
 
