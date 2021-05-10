@@ -238,12 +238,12 @@ namespace Xabbo.Interceptor.GEarth
             response.WriteString(Options.Author);
             response.WriteString(Options.Version);
             response.WriteString(Options.Description);
-            response.WriteBool(Options.FireEventButtonVisible);
+            response.WriteBool(Options.ShowEventButton);
             response.WriteBool(!string.IsNullOrWhiteSpace(Options.FilePath));
             response.WriteString(Options.FilePath);
             response.WriteString(Options.Cookie);
-            response.WriteBool(Options.LeaveButtonVisible);
-            response.WriteBool(Options.DeleteButtonVisible);
+            response.WriteBool(Options.ShowLeaveButton);
+            response.WriteBool(Options.ShowDeleteButton);
 
             return SendInternalAsync(response);
         }
