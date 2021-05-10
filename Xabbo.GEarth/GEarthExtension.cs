@@ -46,13 +46,21 @@ namespace Xabbo.GEarth
         public bool IsGameConnected => Interceptor.IsConnected;
 
         /// <summary>
-        /// Sends a message to the server.
+        /// Sends a message to the client or server depending on the header destination.
         /// </summary>
-        public Task SendAsync(Header header, params object[] values) => Interceptor.SendToServerAsync(header, values);
+        public Task SendAsync(Header header, params object[] values) => Interceptor.SendAsync(header, values);
+        /// <summary>
+        /// Sends a message to the client or server depending on the header destination.
+        /// </summary>
+        public Task SendAsync(IReadOnlyPacket packet) => Interceptor.SendAsync(packet);
         /// <summary>
         /// Sends a message to the server.
         /// </summary>
-        public Task SendAsync(IReadOnlyPacket packet) => Interceptor.SendToServerAsync(packet);
+        public Task SendToServerAsync(Header header, params object[] values) => Interceptor.SendToServerAsync(header, values);
+        /// <summary>
+        /// Sends a message to the server.
+        /// </summary>
+        public Task SendToServerAsync(IReadOnlyPacket packet) => Interceptor.SendToServerAsync(packet);
         /// <summary>
         /// Sends a message to the client.
         /// </summary>
