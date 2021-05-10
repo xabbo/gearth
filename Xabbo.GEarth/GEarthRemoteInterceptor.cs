@@ -245,7 +245,7 @@ namespace Xabbo.Interceptor.GEarth
             response.WriteBool(Options.LeaveButtonVisible);
             response.WriteBool(Options.DeleteButtonVisible);
 
-            return SendAsync(response);
+            return SendInternalAsync(response);
         }
 
         private async Task OnPacketIntercept(IReadOnlyPacket packet)
@@ -309,7 +309,7 @@ namespace Xabbo.Interceptor.GEarth
             response.Position = 0;
             response.WriteInt(response.Length - 4);
 
-            await SendAsync(response);
+            await SendInternalAsync(response);
         }
 
         private Task OnFlagsCheck(IReadOnlyPacket packet)
@@ -383,7 +383,7 @@ namespace Xabbo.Interceptor.GEarth
             return Task.CompletedTask;
         }
 
-        public Task SendAsync(IReadOnlyPacket packet)
+        private Task SendInternalAsync(IReadOnlyPacket packet)
         {
             Memory<byte> buffer = new byte[packet.Length + 6];
             BinaryPrimitives.WriteInt32BigEndian(buffer.Span[0..4], 2 + packet.Length);
@@ -402,6 +402,26 @@ namespace Xabbo.Interceptor.GEarth
             }
         }
 
+        public Task SendAsync(Header header, params object[] values)
+        {
+            return header.Destination switch
+            {
+                Destination.Client => SendToClientAsync(header, values),
+                Destination.Server => SendToServerAsync(header, values),
+                _ => throw new InvalidOperationException("Unknown header destination")
+            };
+        }
+
+        public Task SendAsync(IReadOnlyPacket packet)
+        {
+            return packet.Header.Destination switch
+            {
+                Destination.Client => SendToClientAsync(packet),
+                Destination.Server => SendToServerAsync(packet),
+                _ => throw new InvalidOperationException("Unknown header destination")
+            };
+        }
+
         public Task SendToServerAsync(Header header, params object[] values) => SendToServerAsync(Packet.Compose(ClientType, header, values));
         public Task SendToServerAsync(IReadOnlyPacket packet) => SendToAsync(Destination.Server, packet);
         public Task SendToClientAsync(Header header, params object[] values) => SendToClientAsync(Packet.Compose(ClientType, header, values));
@@ -418,7 +438,7 @@ namespace Xabbo.Interceptor.GEarth
             requestPacket.WriteShort(packet.Header);
             requestPacket.WriteBytes(packet.GetBuffer().Span);
 
-            return SendAsync(requestPacket);
+            return SendInternalAsync(requestPacket);
         }
     }
 }
