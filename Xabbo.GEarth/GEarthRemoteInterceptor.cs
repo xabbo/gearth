@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.IO;
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -124,8 +126,12 @@ namespace Xabbo.Interceptor.GEarth
 
                 _client = await ConnectAsync(cancellationToken);
                 InterceptorConnected?.Invoke(this, EventArgs.Empty);
-                
-                await HandlePacketsAsync(_ns = _client.GetStream(), cancellationToken);
+
+                Pipe pipe = new();
+                await Task.WhenAll(
+                    FillPipeAsync(_ns = _client.GetStream(), pipe.Writer),
+                    ProcessPipeAsync(pipe.Reader)
+                );
             }
             finally
             {
@@ -174,39 +180,100 @@ namespace Xabbo.Interceptor.GEarth
             }
         }
 
-        private async Task HandlePacketsAsync(NetworkStream stream, CancellationToken cancellationToken)
+        private static int ParsePacketLength(in ReadOnlySequence<byte> buffer)
         {
-            Memory<byte> buffer = new byte[4];
-            int totalRead;
+            if (buffer.First.Length >= 4)
+            {
+                return BinaryPrimitives.ReadInt32BigEndian(buffer.First.Span);
+            }
+            else
+            {
+                Span<byte> stackBuffer = stackalloc byte[4];
+                buffer.Slice(0, 4).CopyTo(stackBuffer);
+                return BinaryPrimitives.ReadInt32BigEndian(stackBuffer);
+            }
+        }
+
+        private static short ParsePacketHeader(in ReadOnlySequence<byte> buffer)
+        {
+            if (buffer.First.Length >= 2)
+            {
+                return BinaryPrimitives.ReadInt16BigEndian(buffer.First.Span);
+            }
+            else
+            {
+                Span<byte> stackBuffer = stackalloc byte[2];
+                buffer.Slice(0, 2).CopyTo(stackBuffer);
+                return BinaryPrimitives.ReadInt16BigEndian(stackBuffer);
+            }
+        }
+
+        private static async Task FillPipeAsync(Stream stream, PipeWriter writer)
+        {
+            Exception? error = null;
 
             while (true)
             {
-                totalRead = 0;
-                while (totalRead < 4)
+                Memory<byte> memory = writer.GetMemory(512);
+                try
                 {
-                    int read = await stream.ReadAsync(buffer[totalRead..], cancellationToken);
-                    if (read <= 0) throw new EndOfStreamException();
-                    totalRead += read;
+                    int bytesRead = await stream.ReadAsync(memory);
+                    if (bytesRead == 0) break;
+
+                    writer.Advance(bytesRead);
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                    break;
                 }
 
-                int length = BinaryPrimitives.ReadInt32BigEndian(buffer.Span);
-
-                byte[] packetData = new byte[length];
-                var packetMemory = new Memory<byte>(packetData);
-
-                totalRead = 0;
-                while (totalRead < packetData.Length)
-                {
-                    int read = await stream.ReadAsync(packetMemory[totalRead..], cancellationToken);
-                    if (read <= 0) throw new EndOfStreamException();
-                    totalRead += read;
-                }
-
-                short header = BinaryPrimitives.ReadInt16BigEndian(packetMemory.Span[0..]);
-                var packet = new Packet(header, packetData.AsSpan()[2..]);
-
-                await HandlePacketAsync(packet);
+                FlushResult result = await writer.FlushAsync();
+                if (result.IsCompleted) break;
             }
+
+            await writer.CompleteAsync(error);
+        }
+
+        private async Task ProcessPipeAsync(PipeReader reader)
+        {
+            Exception? error = null;
+
+            while (true)
+            {
+                ReadResult result = await reader.ReadAsync();
+
+                ReadOnlySequence<byte> buffer = result.Buffer;
+
+                while (buffer.Length >= 4)
+                {
+                    int packetLength = ParsePacketLength(buffer);
+                    if (buffer.Length < (4 + packetLength)) break;
+
+                    buffer = buffer.Slice(4);
+                    short header = ParsePacketHeader(buffer);
+
+                    Packet packet = new(header, buffer.Slice(2, packetLength - 2));
+
+                    buffer = buffer.Slice(packetLength);
+
+                    try
+                    {
+                        await HandlePacketAsync(packet);
+                    }
+                    catch (Exception ex)
+                    {
+                        error = ex;
+                        break;
+                    }
+                }
+
+                reader.AdvanceTo(buffer.Start, buffer.End);
+
+                if (result.IsCompleted) break;
+            }
+
+            await reader.CompleteAsync(error);
         }
 
         private Task HandlePacketAsync(IReadOnlyPacket packet)
