@@ -315,36 +315,53 @@ namespace Xabbo.Interceptor.GEarth
             return SendInternalAsync(response);
         }
 
-        private async Task OnPacketIntercept(IReadOnlyPacket packet)
+        private InterceptArgs ParseInterceptArgs(IReadOnlyPacket packet)
         {
-            int len = packet.ReadInt();
-            byte[] bytes = new byte[len];
-            packet.ReadBytes(bytes.AsSpan());
+            const byte TAB = 0x09;
 
-            string payload = _encoding.GetString(bytes);
-            string[] parts = payload.Split('\t', 4);
+            ReadOnlySpan<byte> span = packet.GetBuffer().Span;
 
-            bool isBlocked = parts[0] == "1";
-            int index = int.Parse(parts[1]);
-            var dest = parts[2] == "TOCLIENT" ? Destination.Client : Destination.Server;
-
-            bool isModified = parts[3][0] == '1';
-            byte[] packetData = _encoding.GetBytes(parts[3][1..]);
-
-            short headerValue = BinaryPrimitives.ReadInt16BigEndian(packetData.AsSpan()[4..6]);
-
-            Header? header = new Header(dest, headerValue, null);
-            if (!Messages.TryGetHeaderByValue(dest, headerValue, out header))
+            Span<int> tabs = stackalloc int[3];
+            int currentTabPosition = 0;
+            for (int i = 0; i < span.Length; i++)
             {
-                header = new Header(dest, headerValue, null);
+                if (span[i] == TAB)
+                {
+                    tabs[currentTabPosition++] = i;
+                    if (currentTabPosition == tabs.Length)
+                        break;
+                }
             }
 
-            Packet interceptedPacket = new Packet(header, packetData.AsSpan()[6..])
-            {
-                Protocol = ClientType
-            };
+            if (currentTabPosition != tabs.Length)
+                throw new InvalidOperationException("Invalid data (insufficient delimiter bytes)");
 
-            using var args = new InterceptArgs(dest, ClientType, index, interceptedPacket);
+            bool isBlocked = span[0] == '1';
+            int index = int.Parse(_encoding.GetString(span[(tabs[0] + 1)..tabs[1]]));
+            bool isOutgoing = span[tabs[1] + 3] == 'S';
+            bool isModified = span[tabs[2] + 1] == '1';
+
+            Destination destination = isOutgoing ? Destination.Server : Destination.Client;
+
+            ReadOnlySpan<byte> packetSpan = span[(tabs[2] + 2)..];
+            short headerValue = BinaryPrimitives.ReadInt16BigEndian(packetSpan[4..6]);
+
+            if (!Messages.TryGetHeaderByValue(destination, headerValue, out Header? header))
+            {
+                header = new Header(destination, headerValue, null);
+            }
+
+            return new InterceptArgs(
+                destination,
+                ClientType,
+                index,
+                new Packet(ClientType, header, packetSpan[6..])
+            );
+        }
+
+        private async Task OnPacketIntercept(IReadOnlyPacket packet)
+        {
+            using InterceptArgs args = ParseInterceptArgs(packet);
 
             if (args.IsIncoming)
             {
@@ -362,13 +379,13 @@ namespace Xabbo.Interceptor.GEarth
             response.WriteByte((byte)(args.IsBlocked ? '1' : '0'));
             response.WriteByte(0x09);
 
-            response.WriteBytes(_encoding.GetBytes(index.ToString()));
+            response.WriteBytes(_encoding.GetBytes(args.Step.ToString()));
             response.WriteByte(0x09);
 
-            response.WriteBytes(dest == Destination.Client ? _toClientBytes : _toServerBytes);
+            response.WriteBytes(args.Destination == Destination.Client ? _toClientBytes : _toServerBytes);
             response.WriteByte(0x09);
 
-            response.WriteByte((byte)((isModified || args.IsModified) ? '1' : '0'));
+            response.WriteByte((byte)((args.IsModified) ? '1' : '0'));
             response.WriteInt(2 + args.Packet.Length);
             response.WriteShort(args.Packet.Header);
             response.WriteBytes(args.Packet.GetBuffer().Span);
