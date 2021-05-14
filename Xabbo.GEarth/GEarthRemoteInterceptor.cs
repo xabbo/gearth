@@ -268,6 +268,8 @@ namespace Xabbo.Interceptor.GEarth
                     }
                 }
 
+                if (error is not null) break;
+
                 reader.AdvanceTo(buffer.Start, buffer.End);
 
                 if (result.IsCompleted) break;
@@ -319,22 +321,22 @@ namespace Xabbo.Interceptor.GEarth
         {
             const byte TAB = 0x09;
 
-            ReadOnlySpan<byte> span = packet.GetBuffer().Span;
+            ReadOnlySpan<byte> span = packet.GetBuffer().Span[4..];
 
             Span<int> tabs = stackalloc int[3];
-            int currentTabPosition = 0;
+            int current = 0;
             for (int i = 0; i < span.Length; i++)
             {
                 if (span[i] == TAB)
                 {
-                    tabs[currentTabPosition++] = i;
-                    if (currentTabPosition == tabs.Length)
+                    tabs[current++] = i;
+                    if (current == tabs.Length)
                         break;
                 }
             }
 
-            if (currentTabPosition != tabs.Length)
-                throw new InvalidOperationException("Invalid data (insufficient delimiter bytes)");
+            if (current != tabs.Length)
+                throw new InvalidOperationException("Invalid packet intercept data (insufficient delimiter bytes)");
 
             bool isBlocked = span[0] == '1';
             int index = int.Parse(_encoding.GetString(span[(tabs[0] + 1)..tabs[1]]));
@@ -363,14 +365,11 @@ namespace Xabbo.Interceptor.GEarth
         {
             using InterceptArgs args = ParseInterceptArgs(packet);
 
-            if (args.IsIncoming)
-            {
-                Dispatcher.DispatchMessage(this, args.Packet);
-            }
-
-            Dispatcher.DispatchIntercept(args);
-
             Intercepted?.Invoke(this, args);
+
+            if (args.IsIncoming)
+                Dispatcher.DispatchMessage(this, args.Packet);
+            Dispatcher.DispatchIntercept(args);
 
             var response = new Packet((short)Outgoing.ManipulatedPacket);
 
