@@ -82,9 +82,10 @@ namespace Xabbo.GEarth
             Interceptor.Intercepted += OnIntercepted;
             Interceptor.Disconnected += OnGameDisconnected;
             Interceptor.InterceptorDisconnected += OnInterceptorDisconnected;
-
-            Interceptor.RunAsync();
         }
+
+        public Task RunAsync() => Interceptor.RunAsync();
+        public void Stop() => Interceptor.Stop();
 
         protected virtual void OnInterceptorConnected(object? sender, EventArgs e)
         {
