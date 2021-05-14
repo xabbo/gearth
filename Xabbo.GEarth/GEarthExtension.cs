@@ -100,6 +100,7 @@ namespace Xabbo.GEarth
         }
         protected virtual void OnGameDisconnected(object? sender, EventArgs e)
         {
+            Interceptor.Dispatcher.Release(this);
             RaisePropertyChanged(nameof(IsGameConnected));
         }
         protected virtual void OnIntercepted(object? sender, InterceptArgs e) { }
