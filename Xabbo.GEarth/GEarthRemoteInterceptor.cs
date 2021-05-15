@@ -56,6 +56,8 @@ namespace Xabbo.Interceptor.GEarth
             ExtensionConsoleLog = 98
         }
 
+        private readonly SemaphoreSlim _sendSemaphore = new(1, 1);
+
         private TcpClient? _client;
         private NetworkStream? _ns;
 
@@ -303,16 +305,17 @@ namespace Xabbo.Interceptor.GEarth
         {
             var response = new Packet((short)Outgoing.Info);
 
-            response.WriteString(Options.Title);
-            response.WriteString(Options.Author);
-            response.WriteString(Options.Version);
-            response.WriteString(Options.Description);
-            response.WriteBool(Options.ShowEventButton);
-            response.WriteBool(!string.IsNullOrWhiteSpace(Options.FilePath));
-            response.WriteString(Options.FilePath);
-            response.WriteString(Options.Cookie);
-            response.WriteBool(Options.ShowLeaveButton);
-            response.WriteBool(Options.ShowDeleteButton);
+            response
+                .WriteString(Options.Title)
+                .WriteString(Options.Author)
+                .WriteString(Options.Version)
+                .WriteString(Options.Description)
+                .WriteBool(Options.ShowEventButton)
+                .WriteBool(!string.IsNullOrWhiteSpace(Options.FilePath))
+                .WriteString(Options.FilePath)
+                .WriteString(Options.Cookie)
+                .WriteBool(Options.ShowLeaveButton)
+                .WriteBool(Options.ShowDeleteButton);
 
             return SendInternalAsync(response);
         }
@@ -466,62 +469,45 @@ namespace Xabbo.Interceptor.GEarth
             return Task.CompletedTask;
         }
 
-        private Task SendInternalAsync(IReadOnlyPacket packet)
+        public void Send(Header header, params object[] values) => ForwardPacketAsync(Packet.Compose(ClientType, header, values));
+        public void Send(IReadOnlyPacket packet) => ForwardPacketAsync(packet);
+
+        private Task ForwardPacketAsync(IReadOnlyPacket packet)
         {
-            Memory<byte> buffer = new byte[packet.Length + 6];
-            BinaryPrimitives.WriteInt32BigEndian(buffer.Span[0..4], 2 + packet.Length);
-            BinaryPrimitives.WriteInt16BigEndian(buffer.Span[4..6], packet.Header);
-            packet.CopyTo(buffer.Span[6..]);
-
-            NetworkStream? ns = _ns;
-
-            if (ns is null)
+            if (packet.Header.Destination != Destination.Client &&
+                packet.Header.Destination != Destination.Server)
             {
-                return Task.CompletedTask;
+                throw new InvalidOperationException("Unknown packet destination.");
             }
-            else
-            {
-                return ns.WriteAsync(buffer).AsTask();
-            }
-        }
 
-        public Task SendAsync(Header header, params object[] values)
-        {
-            return header.Destination switch
-            {
-                Destination.Client => SendToClientAsync(header, values),
-                Destination.Server => SendToServerAsync(header, values),
-                _ => throw new InvalidOperationException("Unknown header destination")
-            };
-        }
-
-        public Task SendAsync(IReadOnlyPacket packet)
-        {
-            return packet.Header.Destination switch
-            {
-                Destination.Client => SendToClientAsync(packet),
-                Destination.Server => SendToServerAsync(packet),
-                _ => throw new InvalidOperationException("Unknown header destination")
-            };
-        }
-
-        public Task SendToServerAsync(Header header, params object[] values) => SendToServerAsync(Packet.Compose(ClientType, header, values));
-        public Task SendToServerAsync(IReadOnlyPacket packet) => SendToAsync(Destination.Server, packet);
-        public Task SendToClientAsync(Header header, params object[] values) => SendToClientAsync(Packet.Compose(ClientType, header, values));
-        public Task SendToClientAsync(IReadOnlyPacket packet) => SendToAsync(Destination.Client, packet);
-
-        private Task SendToAsync(Destination destination, IReadOnlyPacket packet)
-        {
             if (!IsConnected) return Task.CompletedTask;
 
-            Packet requestPacket = new((short)Outgoing.SendMessage);
-            requestPacket.WriteByte(destination == Destination.Server ? 1 : 0);
-            requestPacket.WriteInt(6 + packet.Length); // Packet length (length + header + data)
-            requestPacket.WriteInt(2 + packet.Length); // Packet length (header + data)
-            requestPacket.WriteShort(packet.Header);
-            requestPacket.WriteBytes(packet.GetBuffer().Span);
+            return SendInternalAsync(
+                new Packet((short)Outgoing.SendMessage)
+                    .WriteByte(packet.Header.Destination == Destination.Server ? 1 : 0)
+                    .WriteInt(6 + packet.Length) // length of (packet length + header + data)
+                    .WriteInt(2 + packet.Length) // length of (header + data)
+                    .WriteShort(packet.Header)
+                    .WriteBytes(packet.GetBuffer().Span)
+            );
+        }
 
-            return SendInternalAsync(requestPacket);
+        private async Task SendInternalAsync(IReadOnlyPacket packet)
+        {
+            NetworkStream? ns = _ns;
+            if (ns is null) return;
+
+            Memory<byte> buffer = new byte[6];
+            BinaryPrimitives.WriteInt32BigEndian(buffer.Span[0..4], 2 + packet.Length);
+            BinaryPrimitives.WriteInt16BigEndian(buffer.Span[4..6], packet.Header);
+
+            await _sendSemaphore.WaitAsync();
+            try
+            {
+                await ns.WriteAsync(buffer[0..6]);
+                await ns.WriteAsync(packet.GetBuffer());
+            }
+            finally { _sendSemaphore.Release(); }
         }
     }
 }

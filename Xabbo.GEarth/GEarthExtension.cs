@@ -48,27 +48,11 @@ namespace Xabbo.GEarth
         /// <summary>
         /// Sends a message to the client or server depending on the header destination.
         /// </summary>
-        public Task SendAsync(Header header, params object[] values) => Interceptor.SendAsync(header, values);
+        public void Send(Header header, params object[] values) => Interceptor.Send(header, values);
         /// <summary>
         /// Sends a message to the client or server depending on the header destination.
         /// </summary>
-        public Task SendAsync(IReadOnlyPacket packet) => Interceptor.SendAsync(packet);
-        /// <summary>
-        /// Sends a message to the server.
-        /// </summary>
-        public Task SendToServerAsync(Header header, params object[] values) => Interceptor.SendToServerAsync(header, values);
-        /// <summary>
-        /// Sends a message to the server.
-        /// </summary>
-        public Task SendToServerAsync(IReadOnlyPacket packet) => Interceptor.SendToServerAsync(packet);
-        /// <summary>
-        /// Sends a message to the client.
-        /// </summary>
-        public Task SendToClientAsync(Header header, params object[] values) => Interceptor.SendToClientAsync(header, values);
-        /// <summary>
-        /// Sends a message to the client.
-        /// </summary>
-        public Task SendToClientAsync(IReadOnlyPacket packet) => Interceptor.SendToClientAsync(packet);
+        public void Send(IReadOnlyPacket packet) => Interceptor.Send(packet);
 
         public GEarthExtension(GEarthOptions options, int port)
         {
