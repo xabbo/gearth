@@ -469,18 +469,20 @@ namespace Xabbo.Interceptor.GEarth
             return Task.CompletedTask;
         }
 
-        public void Send(Header header, params object[] values) => ForwardPacketAsync(Packet.Compose(ClientType, header, values));
-        public void Send(IReadOnlyPacket packet) => ForwardPacketAsync(packet);
+        public void Send(Header header, params object[] values) => SendAsync(header, values);
+        public void Send(IReadOnlyPacket packet) => SendAsync(packet);
+        public Task SendAsync(Header header, params object[] values) => ForwardPacketAsync(Packet.Compose(ClientType, header, values));
+        public Task SendAsync(IReadOnlyPacket packet) => ForwardPacketAsync(packet);
 
         private Task ForwardPacketAsync(IReadOnlyPacket packet)
         {
+            if (!IsConnected) return Task.CompletedTask;
+
             if (packet.Header.Destination != Destination.Client &&
                 packet.Header.Destination != Destination.Server)
             {
                 throw new InvalidOperationException("Unknown packet destination.");
             }
-
-            if (!IsConnected) return Task.CompletedTask;
 
             return SendInternalAsync(
                 new Packet((short)Outgoing.SendMessage)
