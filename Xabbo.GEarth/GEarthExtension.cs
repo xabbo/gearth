@@ -358,24 +358,24 @@ namespace Xabbo.GEarth
         {
             return ((GIncoming)packet.Header.Value) switch
             {
-                GIncoming.Click => OnClick(packet),
-                GIncoming.InfoRequest => OnInfoRequest(packet),
-                GIncoming.PacketIntercept => OnPacketIntercept(packet),
-                GIncoming.FlagsCheck => OnFlagsCheck(packet),
-                GIncoming.ConnectionStart => OnConnectionStart(packet),
-                GIncoming.ConnectionEnd => OnConnectionEnd(packet),
-                GIncoming.Init => OnInit(packet),
+                GIncoming.Click => HandleClick(packet),
+                GIncoming.InfoRequest => HandleInfoRequest(packet),
+                GIncoming.PacketIntercept => HandlePacketIntercept(packet),
+                GIncoming.FlagsCheck => HandleFlagsCheck(packet),
+                GIncoming.ConnectionStart => HandleConnectionStart(packet),
+                GIncoming.ConnectionEnd => HandleConnectionEnd(packet),
+                GIncoming.Init => HandleInit(packet),
                 _ => Task.CompletedTask
             };
         }
 
-        private Task OnClick(IReadOnlyPacket packet)
+        private Task HandleClick(IReadOnlyPacket packet)
         {
             OnClicked();
             return Task.CompletedTask;
         }
 
-        private Task OnInfoRequest(IReadOnlyPacket packet)
+        private Task HandleInfoRequest(IReadOnlyPacket packet)
         {
             return SendInternalAsync(
                 Packet.Compose((short)GOutgoing.Info,
@@ -437,7 +437,7 @@ namespace Xabbo.GEarth
             );
         }
 
-        private async Task OnPacketIntercept(IReadOnlyPacket packet)
+        private async Task HandlePacketIntercept(IReadOnlyPacket packet)
         {
             using InterceptArgs args = ParseInterceptArgs(packet);
 
@@ -471,12 +471,12 @@ namespace Xabbo.GEarth
             await SendInternalAsync(response);
         }
 
-        private Task OnFlagsCheck(IReadOnlyPacket packet)
+        private Task HandleFlagsCheck(IReadOnlyPacket packet)
         {
             return Task.CompletedTask;
         }
 
-        private Task OnConnectionStart(IReadOnlyPacket packet)
+        private Task HandleConnectionStart(IReadOnlyPacket packet)
         {
             string host = packet.ReadString();
             int port = packet.ReadInt();
@@ -526,7 +526,7 @@ namespace Xabbo.GEarth
             return Task.CompletedTask;
         }
 
-        private Task OnConnectionEnd(IReadOnlyPacket packet)
+        private Task HandleConnectionEnd(IReadOnlyPacket packet)
         {
             IsConnected = false;
             Dispatcher.ReleaseAll();
@@ -535,7 +535,7 @@ namespace Xabbo.GEarth
             return Task.CompletedTask;
         }
 
-        private Task OnInit(IReadOnlyPacket packet)
+        private Task HandleInit(IReadOnlyPacket packet)
         {
             bool? isGameConnected = packet.Available > 0 ? packet.ReadBool() : null;
 
