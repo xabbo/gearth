@@ -36,7 +36,7 @@ namespace Xabbo.GEarth
 
         private enum GIncoming : short
         {
-            DoubleClick = 1,
+            Click = 1,
             InfoRequest = 2,
             PacketIntercept = 3,
             FlagsCheck = 4,
@@ -358,7 +358,7 @@ namespace Xabbo.GEarth
         {
             return ((GIncoming)packet.Header.Value) switch
             {
-                GIncoming.DoubleClick => OnDoubleClick(packet),
+                GIncoming.Click => OnClick(packet),
                 GIncoming.InfoRequest => OnInfoRequest(packet),
                 GIncoming.PacketIntercept => OnPacketIntercept(packet),
                 GIncoming.FlagsCheck => OnFlagsCheck(packet),
@@ -369,9 +369,9 @@ namespace Xabbo.GEarth
             };
         }
 
-        private Task OnDoubleClick(IReadOnlyPacket packet)
+        private Task OnClick(IReadOnlyPacket packet)
         {
-            Clicked?.Invoke(this, EventArgs.Empty);
+            OnClicked();
             return Task.CompletedTask;
         }
 
