@@ -555,7 +555,7 @@ namespace Xabbo.GEarth
 
             return SendInternalAsync(
                 new Packet((short)GOutgoing.SendMessage)
-                    .WriteByte(packet.Header.Destination == Destination.Server ? 1 : 0)
+                    .WriteByte((byte)(packet.Header.IsOutgoing ? 1 : 0))
                     .WriteInt(6 + packet.Length) // length of (packet length + header + data)
                     .WriteInt(2 + packet.Length) // length of (header + data)
                     .WriteShort(packet.Header)
