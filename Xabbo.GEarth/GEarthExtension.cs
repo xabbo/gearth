@@ -152,7 +152,7 @@ namespace Xabbo.GEarth
             Messages = messages;
             Options = options;
 
-            Port = config.GetValue("Interceptor:Port", DEFAULT_PORT);
+            Port = config.GetValue("Xabbo:Interceptor:Port", DEFAULT_PORT);
 
             Dispatcher = new InterceptDispatcher(messages);
         }
@@ -356,7 +356,7 @@ namespace Xabbo.GEarth
 
         private Task HandlePacketAsync(IReadOnlyPacket packet)
         {
-            return ((GIncoming)packet.Header.Value) switch
+            return ((GIncoming)(packet.Header.Value ?? -1)) switch
             {
                 GIncoming.Click => HandleClick(packet),
                 GIncoming.InfoRequest => HandleInfoRequest(packet),
@@ -424,9 +424,9 @@ namespace Xabbo.GEarth
             ReadOnlySpan<byte> packetSpan = span[(tabs[2] + 2)..];
             short headerValue = BinaryPrimitives.ReadInt16BigEndian(packetSpan[4..6]);
 
-            if (!Messages.TryGetHeaderByValue(destination, headerValue, out Header? header))
+            if (!Messages.TryGetHeaderByValue(destination, ClientType, headerValue, out Header? header))
             {
-                header = new Header(destination, headerValue, null);
+                header = new Header(destination, headerValue);
             }
 
             return new InterceptArgs(
@@ -462,7 +462,7 @@ namespace Xabbo.GEarth
 
             response.WriteByte((byte)((args.IsModified) ? '1' : '0'));
             response.WriteInt(2 + args.Packet.Length);
-            response.WriteShort(args.Packet.Header);
+            response.WriteShort(args.Packet.Header.GetValue(ClientType));
             response.WriteBytes(args.Packet.GetBuffer().Span);
 
             response.Position = 0;
@@ -481,11 +481,15 @@ namespace Xabbo.GEarth
             string host = packet.ReadString();
             int port = packet.ReadInt();
             string clientVersion = packet.ReadString();
-            string clientIdentifier = packet.ReadString();
+            ClientIdentifier = packet.ReadString();
             string clientType = packet.ReadString();
 
+            if (clientType.StartsWith("Unity", StringComparison.OrdinalIgnoreCase)) ClientType = ClientType.Unity;
+            else if (clientType.StartsWith("Flash", StringComparison.OrdinalIgnoreCase)) ClientType = ClientType.Flash;
+            else ClientType = ClientType.Unknown;
+
             int n = packet.ReadInt();
-            List<MessageInfo> messages = new(n);
+            List<IClientMessageInfo> messages = new(n);
             for (int i = 0; i < n; i++)
             {
                 int id = packet.ReadInt();
@@ -495,22 +499,17 @@ namespace Xabbo.GEarth
                 bool isOutgoing = packet.ReadBool();
                 string source = packet.ReadString();
 
-                messages.Add(new MessageInfo
+                messages.Add(new ClientMessageInfo
                 {
+                    Client = ClientType,
                     Direction = isOutgoing ? Direction.Outgoing : Direction.Incoming,
                     Header = (short)id,
                     Name = name
                 });
             }
 
-            ClientIdentifier = clientIdentifier;
-
-            if (clientType.StartsWith("Unity", StringComparison.OrdinalIgnoreCase)) ClientType = ClientType.Unity;
-            else if (clientType.StartsWith("Flash", StringComparison.OrdinalIgnoreCase)) ClientType = ClientType.Flash;
-            else ClientType = ClientType.Unknown;
-
-            Messages.LoadMessages(ClientType, messages);
-            Dispatcher.Bind(this);
+            Messages.LoadMessages(messages);
+            Dispatcher.Bind(this, ClientType);
 
             IsConnected = true;
             OnConnected(new GameConnectedEventArgs()
@@ -518,7 +517,7 @@ namespace Xabbo.GEarth
                 Host = host,
                 Port = port,
                 ClientVersion = clientVersion,
-                ClientIdentifier = clientIdentifier,
+                ClientIdentifier = ClientIdentifier,
                 ClientType = ClientType,
                 Messages = messages
             });
@@ -558,7 +557,7 @@ namespace Xabbo.GEarth
                     .WriteByte((byte)(packet.Header.IsOutgoing ? 1 : 0))
                     .WriteInt(6 + packet.Length) // length of (packet length + header + data)
                     .WriteInt(2 + packet.Length) // length of (header + data)
-                    .WriteShort(packet.Header)
+                    .WriteShort(packet.Header.GetValue(ClientType))
                     .WriteBytes(packet.GetBuffer().Span)
             );
         }
@@ -570,7 +569,7 @@ namespace Xabbo.GEarth
 
             Memory<byte> buffer = new byte[6];
             BinaryPrimitives.WriteInt32BigEndian(buffer.Span[0..4], 2 + packet.Length);
-            BinaryPrimitives.WriteInt16BigEndian(buffer.Span[4..6], packet.Header);
+            BinaryPrimitives.WriteInt16BigEndian(buffer.Span[4..6], packet.Header.Value ?? -1);
 
             await _sendSemaphore.WaitAsync();
             try
