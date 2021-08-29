@@ -138,7 +138,7 @@ namespace Xabbo.GEarth
         /// <summary>
         /// Creates a new <see cref="GEarthOptions"/> with <see cref="ShowLeaveButton"/> changed.
         /// </summary>
-        public GEarthOptions WithShowLeaveButton(bool showLeaveButton) => new(this) { ShowLeaveButton = ShowLeaveButton };
+        public GEarthOptions WithShowLeaveButton(bool showLeaveButton) => new(this) { ShowLeaveButton = showLeaveButton };
 
         /// <summary>
         /// Creates a new <see cref="GEarthOptions"/> with <see cref="ShowDeleteButton"/> changed.
