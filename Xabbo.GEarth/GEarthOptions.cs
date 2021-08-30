@@ -50,17 +50,20 @@ namespace Xabbo.GEarth
         public string Version { get; init; }
 
         /// <summary>
-        /// Specifies whether to show the even (green play) button in G-Earth. Defaults to <c>true</c>.
+        /// Specifies whether to show the even (green play) button in G-Earth.
+        /// Defaults to <c>true</c>.
         /// </summary>
         public bool ShowEventButton { get; init; } = true;
         /// <summary>
-        /// Specifies whether to show the leave button in G-Earth. Defaults to <c>true</c>.
+        /// Specifies whether to show the leave button in G-Earth.
+        /// Defaults to <c>true</c>.
         /// </summary>
         public bool ShowLeaveButton { get; init; } = true;
         /// <summary>
-        /// Specifies whether to show the delete button in G-Earth.
+        /// Specifies whether to show the delete button in G-Earth after the user disconnects from the extension.
+        /// Defaults to <c>true</c>.
         /// </summary>
-        public bool ShowDeleteButton { get; init; }
+        public bool ShowDeleteButton { get; init; } = true;
 
         /// <summary>
         /// The file path of the extension.
