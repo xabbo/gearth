@@ -75,6 +75,12 @@ namespace Xabbo.GEarth
         public string Cookie { get; init; }
 
         /// <summary>
+        /// Specifies whether the extension is installed.
+        /// Returns <c>true</c> if <see cref="FileName"/> is a non-empty string.
+        /// </summary>
+        public bool IsInstalledExtension => !string.IsNullOrWhiteSpace(FileName);
+
+        /// <summary>
         /// The port used to connect to G-Earth.
         /// Defaults to 9092.
         /// </summary>

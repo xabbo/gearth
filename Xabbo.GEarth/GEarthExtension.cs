@@ -455,7 +455,7 @@ namespace Xabbo.GEarth
                     Options.Version,
                     Options.Description,
                     Options.ShowEventButton,
-                    !string.IsNullOrWhiteSpace(Options.FileName),
+                    Options.IsInstalledExtension,
                     Options.FileName,
                     Options.Cookie,
                     Options.ShowLeaveButton,
