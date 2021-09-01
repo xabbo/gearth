@@ -220,6 +220,7 @@ namespace Xabbo.GEarth
 
             try
             {
+                await Messages.InitializeAsync(_cancellation.Token);
                 await HandleInterceptorAsync(_cancellation.Token);
             }
             finally
