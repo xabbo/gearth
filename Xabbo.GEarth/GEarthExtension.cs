@@ -201,8 +201,8 @@ namespace Xabbo.GEarth
         }
 
         /// <summary>
-        /// Creates a new GEarthExtension with the specified <see cref="GEarthOptions"/>.
-        /// Uses a <see cref="UnifiedMessageManager"/> as the message manager, which loads a file named <c>messages.ini</c>.
+        /// Creates a new <see cref="GEarthExtension"/> with the specified <see cref="GEarthOptions"/>.
+        /// Uses a <see cref="UnifiedMessageManager"/> which loads a file named <c>messages.ini</c>.
         /// </summary>
         /// <param name="options">The options to be used by this extension.</param>
         public GEarthExtension(GEarthOptions options)
@@ -252,8 +252,6 @@ namespace Xabbo.GEarth
                 try
                 {
                     _tcpClient = await ConnectAsync(cancellationToken);
-
-                    IsInterceptorConnected = true;
                     OnInterceptorConnected();
 
                     Pipe pipe = new();
@@ -269,6 +267,7 @@ namespace Xabbo.GEarth
                 finally
                 {
                     Dispatcher.ReleaseAll();
+                    Port = 0;
 
                     _ns = null;
                     _tcpClient?.Close();
@@ -313,6 +312,10 @@ namespace Xabbo.GEarth
                 try
                 {
                     await client.ConnectAsync(IPAddress.Loopback, Options.Port, cancellationToken);
+
+                    IsInterceptorConnected = true;
+                    Port = Options.Port;
+
                     return client;
                 }
                 catch
