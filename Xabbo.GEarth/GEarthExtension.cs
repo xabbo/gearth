@@ -220,7 +220,7 @@ namespace Xabbo.GEarth
 
             try
             {
-                await Messages.InitializeAsync(_cancellation.Token);
+                await Messages.InitializeAsync(_cancellation.Token).ConfigureAwait(false);
                 await HandleInterceptorAsync(_cancellation.Token);
             }
             finally
@@ -324,7 +324,7 @@ namespace Xabbo.GEarth
                     OnInterceptorConnectionFailed(e);
 
                     if (!e.Retry)
-                        throw;
+                        throw new Exception($"Failed to connect to G-Earth on port {Options.Port}.");
                 }
 
                 await Task.Delay(CONNECT_INTERVAL, cancellationToken);
