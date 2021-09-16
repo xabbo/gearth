@@ -186,6 +186,10 @@ namespace Xabbo.GEarth
         public void Send(IReadOnlyPacket packet) => SendAsync(packet);
         public Task SendAsync(Header header, params object[] values) => ForwardPacketAsync(Packet.Compose(Client, header, values));
         public Task SendAsync(IReadOnlyPacket packet) => ForwardPacketAsync(packet);
+        public Task<IPacket> ReceiveAsync(Header header, int timeout, bool blockPacket = false, CancellationToken cancellationToken = default)
+            => InterceptorExtensions.ReceiveAsync(this, header, timeout, blockPacket, cancellationToken);
+        public Task<IPacket> ReceiveAsync(HeaderSet headers, int timeout, bool blockPacket = false, CancellationToken cancellationToken = default)
+            => InterceptorExtensions.ReceiveAsync(this, headers, timeout, blockPacket, cancellationToken);
 
         /// <summary>
         /// Creates a new <see cref="GEarthExtension"/> using the specified <see cref="IMessageManager"/> and <see cref="GEarthOptions"/>.
