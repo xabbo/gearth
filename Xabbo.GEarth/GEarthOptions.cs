@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 
 using Microsoft.Extensions.Configuration;
@@ -171,13 +172,13 @@ namespace Xabbo.GEarth
         /// <summary>
         /// Creates a new <see cref="GEarthOptions"/> with the specified arguments applied.
         /// </summary>
-        public GEarthOptions WithArguments(string[] args)
+        public GEarthOptions WithArguments(IList<string> args)
         {
             int port = Port;
             string cookie = Cookie;
             string file = FileName;
 
-            for (int i = 0; i < args.Length - 1; i++)
+            for (int i = 0; i < args.Count - 1; i++)
             {
                 switch (args[i])
                 {
