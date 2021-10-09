@@ -21,11 +21,14 @@
   
   <!-- Package -->
   <PropertyGroup>
-    <LocalPackageSource>%USERPROFILE%\.nuget\local</LocalPackageSource>
     <PackageId>Xabbo.GEarth</PackageId>
+    <Description>Provides an interceptor implementation for G-Earth.</Description>
     <Version Condition="'$(Configuration)'=='Develop'">1.0.0-dev</Version>
-    <Version Condition="'$(Configuration)'=='Release'">1.0.0-alpha.2</Version>
+    <Version Condition="'$(Configuration)'=='Release'">1.0.0-beta</Version>
+    <InformationalVersion>$(Version)</InformationalVersion>
     <Authors>b7</Authors>
+    <LocalPackageCache>%USERPROFILE%\.nuget\packages</LocalPackageCache>
+    <LocalPackageSource>%USERPROFILE%\.nuget\local</LocalPackageSource>
   </PropertyGroup>
 
   <!-- Rename paths -->
@@ -51,15 +54,16 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Develop'">
-    <PackageReference Include="Xabbo.Common" Version="1.0.0-dev" />
+    <PackageReference Include="Xabbo.Common" Version="0.0.0-dev" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Release'">
-    <PackageReference Include="Xabbo.Common" Version="1.0.0-alpha*" />
+    <PackageReference Include="Xabbo.Common" Version="1.0.0-beta*" />
   </ItemGroup>
 
   <!-- Update package in local source after pack -->
   <Target Name="NugetDeletePackage" AfterTargets="Pack" Condition="'$(Configuration)'=='Develop'">
+    <Exec Command="nuget delete $(PackageId) $(Version) -Source $(LocalPackageCache) -NonInteractive" ContinueOnError="true" />
     <Exec Command="nuget delete $(PackageId) $(Version) -Source $(LocalPackageSource) -NonInteractive" ContinueOnError="true" />
   </Target>
   <Target Name="NugetAddPackage" AfterTargets="Pack" Condition="'$(Configuration)'!='Debug'">

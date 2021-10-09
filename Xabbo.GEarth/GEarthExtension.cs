@@ -476,7 +476,7 @@ namespace Xabbo.GEarth
         {
             return SendInternalAsync(
                 Packet.Compose((short)GOutgoing.Info,
-                    Options.Title,
+                    Options.Name,
                     Options.Author,
                     Options.Version,
                     Options.Description,
