@@ -424,7 +424,7 @@ namespace Xabbo.GEarth
                     if (buffer.Length < (4 + packetLength)) break;
 
                     buffer = buffer.Slice(4);
-                    short header = ParsePacketHeader(buffer);
+                    Header header = Header.In(ParsePacketHeader(buffer));
 
                     Packet packet = new(header, buffer.Slice(2, packetLength - 2));
 
@@ -475,7 +475,8 @@ namespace Xabbo.GEarth
         private Task HandleInfoRequest(IReadOnlyPacket packet)
         {
             return SendInternalAsync(
-                Packet.Compose((short)GOutgoing.Info,
+                Packet.Compose(
+                    Header.Out((short)GOutgoing.Info),
                     Options.Name,
                     Options.Author,
                     Options.Version,
@@ -544,7 +545,7 @@ namespace Xabbo.GEarth
                 Dispatcher.DispatchMessage(this, args.Packet);
             Dispatcher.DispatchIntercept(args);
 
-            var response = new Packet((short)GOutgoing.ManipulatedPacket);
+            var response = new Packet(Header.Out((short)GOutgoing.ManipulatedPacket));
 
             response.WriteInt(-1);
 
@@ -650,7 +651,7 @@ namespace Xabbo.GEarth
             }
 
             return SendInternalAsync(
-                new Packet((short)GOutgoing.SendMessage)
+                new Packet(Header.Out((short)GOutgoing.SendMessage))
                     .WriteByte((byte)(packet.Header.IsOutgoing ? 1 : 0))
                     .WriteInt(6 + packet.Length) // length of (packet length + header + data)
                     .WriteInt(2 + packet.Length) // length of (header + data)
