@@ -23,8 +23,7 @@
   <PropertyGroup>
     <PackageId>Xabbo.GEarth</PackageId>
     <Description>Provides an interceptor implementation for G-Earth.</Description>
-    <Version Condition="'$(Configuration)'=='Develop'">1.0.0-dev</Version>
-    <Version Condition="'$(Configuration)'=='Release'">1.0.0-beta</Version>
+    <Version>1.0.0-beta.1</Version>
     <InformationalVersion>$(Version)</InformationalVersion>
     <Authors>b7</Authors>
     <LocalPackageCache>%USERPROFILE%\.nuget\packages</LocalPackageCache>
@@ -61,11 +60,7 @@
     <PackageReference Include="Xabbo.Common" Version="1.0.0-beta*" />
   </ItemGroup>
 
-  <!-- Update package in local source after pack -->
-  <Target Name="NugetDeletePackage" AfterTargets="Pack" Condition="'$(Configuration)'=='Develop'">
-    <Exec Command="nuget delete $(PackageId) $(Version) -Source $(LocalPackageCache) -NonInteractive" ContinueOnError="true" />
-    <Exec Command="nuget delete $(PackageId) $(Version) -Source $(LocalPackageSource) -NonInteractive" ContinueOnError="true" />
-  </Target>
+  <!-- Add package to local source after pack -->
   <Target Name="NugetAddPackage" AfterTargets="Pack" Condition="'$(Configuration)'!='Debug'">
     <Exec Command="nuget add bin\$(ConfigurationName)\$(PackageId).$(Version).nupkg -Source $(LocalPackageSource)" />
   </Target>
