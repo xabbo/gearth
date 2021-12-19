@@ -8,27 +8,27 @@
     <DebugType>embedded</DebugType>
     <AssemblyVersion>1.0.0</AssemblyVersion>
     <AssemblyFileVersion>1.0.0</AssemblyFileVersion>
-    <Configurations>Debug;Release;Develop</Configurations>
-  </PropertyGroup>
-  
-  <!-- Configurations -->
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Develop|AnyCPU'">
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
   </PropertyGroup>
   
   <!-- Package -->
   <PropertyGroup>
+    <LocalPackageSource>%USERPROFILE%\.nuget\local</LocalPackageSource>
     <PackageId>Xabbo.GEarth</PackageId>
-    <Description>Provides an interceptor implementation for G-Earth.</Description>
+    <Description>A framework for creating G-Earth extensions.</Description>
     <Version>1.0.0-beta.1</Version>
     <InformationalVersion>$(Version)</InformationalVersion>
+    <RepositoryUrl>https://github.com/b7c/Xabbo.GEarth.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageIcon>img\package-icon.png</PackageIcon>
     <Authors>b7</Authors>
-    <LocalPackageCache>%USERPROFILE%\.nuget\packages</LocalPackageCache>
-    <LocalPackageSource>%USERPROFILE%\.nuget\local</LocalPackageSource>
+    <PackageTags>xabbo;habbo;gearth;g-earth</PackageTags>
   </PropertyGroup>
+
+  <!-- Include package icon -->
+  <ItemGroup>
+    <None Include="res\img\xabbo-skull-128.png" Pack="true" PackagePath="img\package-icon.png" />
+  </ItemGroup>
 
   <!-- Rename paths -->
   <PropertyGroup>
@@ -56,8 +56,12 @@
     <PackageReference Include="Xabbo.Common" Version="1.0.0-beta.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="res\img\" />
+  </ItemGroup>
+
   <!-- Add package to local source after pack -->
-  <Target Name="NugetAddPackage" AfterTargets="Pack" Condition="'$(Configuration)'!='Debug'">
+  <Target Name="NugetAddPackage" AfterTargets="Pack" Condition="'$(Configuration)'=='Release'">
     <Exec Command="nuget add bin\$(ConfigurationName)\$(PackageId).$(Version).nupkg -Source $(LocalPackageSource)" />
   </Target>
 
