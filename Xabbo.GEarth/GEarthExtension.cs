@@ -88,6 +88,9 @@ namespace Xabbo.GEarth
 
         private CancellationTokenSource? _cancellation;
 
+        private CancellationTokenSource _ctsDisconnect;
+        public CancellationToken DisconnectToken { get; private set; }
+
         #region - Events -
         public event EventHandler<ConnectionFailedEventArgs>? InterceptorConnectionFailed;
         protected virtual void OnInterceptorConnectionFailed(ConnectionFailedEventArgs e)
@@ -107,7 +110,14 @@ namespace Xabbo.GEarth
         protected virtual void OnConnected(GameConnectedEventArgs e) => Connected?.Invoke(this, e);
 
         public event EventHandler? Disconnected;
-        protected virtual void OnDisconnected() => Disconnected?.Invoke(this, EventArgs.Empty);
+        protected virtual void OnDisconnected()
+        {
+            _ctsDisconnect.Cancel();
+            _ctsDisconnect = new CancellationTokenSource();
+            DisconnectToken = _ctsDisconnect.Token;
+
+            Disconnected?.Invoke(this, EventArgs.Empty);
+        }
 
         public event EventHandler<InterceptArgs>? Intercepted;
         protected virtual void OnIntercepted(InterceptArgs e) => Intercepted?.Invoke(this, e);
@@ -216,6 +226,9 @@ namespace Xabbo.GEarth
         /// <param name="options">The options to be used by this extension.</param>
         public GEarthExtension(IMessageManager messages, GEarthOptions options)
         {
+            _ctsDisconnect = new CancellationTokenSource();
+            DisconnectToken = _ctsDisconnect.Token;
+
             Messages = messages;
             Options = options;
 
