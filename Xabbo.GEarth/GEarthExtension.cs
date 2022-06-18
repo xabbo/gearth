@@ -591,7 +591,7 @@ namespace Xabbo.GEarth
                 header = new Header(destination, headerValue);
             }
 
-            return new InterceptArgs(destination, new Packet(Client, header, packetSpan[6..])) { Step = index };
+            return new InterceptArgs(this, destination, new Packet(Client, header, packetSpan[6..])) { Step = index };
         }
 
         private async ValueTask HandlePacketIntercept(IReadOnlyPacket packet)
@@ -634,8 +634,6 @@ namespace Xabbo.GEarth
 
             // packet sequence number as a string
             Encoding.ASCII.GetBytes(stepString, p.GetSpan(stepByteCount));
-            p.WriteBytes(Encoding.ASCII.GetBytes(args.Step.ToString()));
-
             p.WriteByte(TAB);
 
             // packet destination
@@ -680,11 +678,11 @@ namespace Xabbo.GEarth
             for (int i = 0; i < n; i++)
             {
                 int id = packet.ReadInt();
-                packet.Position += packet.ReadShort(); // string hash = packet.ReadString();
+                packet.Skip(packet.ReadShort()); // string hash = packet.ReadString();
                 string name = packet.ReadString();
-                packet.Position += packet.ReadShort(); // string structure = packet.ReadString();
+                packet.Skip(packet.ReadShort()); // string structure = packet.ReadString();
                 bool isOutgoing = packet.ReadBool();
-                packet.Position += packet.ReadShort(); // string source = packet.ReadString();
+                packet.Skip(packet.ReadShort()); // string source = packet.ReadString();
 
                 messages.Add(new ClientMessageInfo
                 {
