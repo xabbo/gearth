@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
+using Xabbo.Common;
 using Xabbo.Messages;
 using Xabbo.Interceptor;
 using Xabbo.Interceptor.Dispatcher;
@@ -22,13 +23,15 @@ namespace Xabbo.GEarth
     /// <summary>
     /// A <see cref="IRemoteInterceptor"/> implementation for G-Earth.
     /// </summary>
-    public class GEarthExtension : IRemoteInterceptor, INotifyPropertyChanged
+    public class GEarthExtension : IRemoteInterceptor, IInterceptHandler, INotifyPropertyChanged
     {
+        const byte TAB = 0x09;
+
         private const int CONNECT_INTERVAL = 1000;
 
-        private static readonly byte[]
-            _toClientBytes = Encoding.ASCII.GetBytes("TOCLIENT"),
-            _toServerBytes = Encoding.ASCII.GetBytes("TOSERVER");
+        private static readonly ReadOnlyMemory<byte>
+            TOCLIENT = Encoding.ASCII.GetBytes("TOCLIENT"),
+            TOSERVER = Encoding.ASCII.GetBytes("TOSERVER");
 
         private enum GIncoming : short
         {
@@ -76,6 +79,7 @@ namespace Xabbo.GEarth
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
+        /// <inheritdoc />
         public event PropertyChangedEventHandler? PropertyChanged;
 
         private readonly int _remotePort;
@@ -89,27 +93,41 @@ namespace Xabbo.GEarth
         private CancellationTokenSource? _cancellation;
 
         private CancellationTokenSource _ctsDisconnect;
+
+        /// <inheritdoc />
         public CancellationToken DisconnectToken { get; private set; }
 
         #region - Events -
+        /// <inheritdoc />
         public event EventHandler<ConnectionFailedEventArgs>? InterceptorConnectionFailed;
+        /// <inheritdoc cref="InterceptorConnectionFailed" />
         protected virtual void OnInterceptorConnectionFailed(ConnectionFailedEventArgs e)
             => InterceptorConnectionFailed?.Invoke(this, e);
 
+        /// <inheritdoc />
         public event EventHandler? InterceptorConnected;
+        /// <inheritdoc cref="InterceptorConnected" />
         protected virtual void OnInterceptorConnected() => InterceptorConnected?.Invoke(this, EventArgs.Empty);
 
+        /// <inheritdoc />
         public event EventHandler<DisconnectedEventArgs>? InterceptorDisconnected;
+        /// <inheritdoc cref="InterceptorDisconnected" />
         protected virtual void OnInterceptorDisconnected(DisconnectedEventArgs e)
             => InterceptorDisconnected?.Invoke(this, e);
 
+        /// <inheritdoc />
         public event EventHandler<InterceptorInitializedEventArgs>? Initialized;
+        /// <inheritdoc cref="Initialized" />
         protected virtual void OnInitialized(InterceptorInitializedEventArgs e) => Initialized?.Invoke(this, e);
 
+        /// <inheritdoc />
         public event EventHandler<GameConnectedEventArgs>? Connected;
+        /// <inheritdoc cref="Connected" />
         protected virtual void OnConnected(GameConnectedEventArgs e) => Connected?.Invoke(this, e);
 
+        /// <inheritdoc />
         public event EventHandler? Disconnected;
+        /// <inheritdoc cref="Disconnected" />
         protected virtual void OnDisconnected()
         {
             _ctsDisconnect.Cancel();
@@ -119,7 +137,9 @@ namespace Xabbo.GEarth
             Disconnected?.Invoke(this, EventArgs.Empty);
         }
 
+        /// <inheritdoc />
         public event EventHandler<InterceptArgs>? Intercepted;
+        /// <inheritdoc cref="Intercepted" />
         protected virtual void OnIntercepted(InterceptArgs e) => Intercepted?.Invoke(this, e);
 
         public event EventHandler? Clicked;
@@ -131,10 +151,11 @@ namespace Xabbo.GEarth
         /// </summary>
         public GEarthOptions Options { get; }
 
-        /// <summary>
-        /// Gets the message manager used by this extension.
-        /// </summary>
+        /// <inheritdoc />
         public IMessageManager Messages { get; }
+
+        /// <inheritdoc />
+        public IInterceptDispatcher Dispatcher { get; }
 
         /// <summary>
         /// Gets the incoming headers from the message manager.
@@ -146,12 +167,8 @@ namespace Xabbo.GEarth
         /// </summary>
         public Outgoing Out => Messages.Out;
 
-        /// <summary>
-        /// Gets the dispatcher responsible for routing intercepted messages.
-        /// </summary>
-        public IInterceptDispatcher Dispatcher { get; }
-
         private bool _isRunning;
+        /// <inheritdoc />
         public bool IsRunning
         {
             get => _isRunning;
@@ -159,6 +176,7 @@ namespace Xabbo.GEarth
         }
 
         private bool _isInterceptorConnected;
+        /// <inheritdoc />
         public bool IsInterceptorConnected
         {
             get => _isInterceptorConnected;
@@ -166,6 +184,7 @@ namespace Xabbo.GEarth
         }
 
         private int _port;
+        /// <inheritdoc />
         public int Port
         {
             get => _port;
@@ -173,6 +192,7 @@ namespace Xabbo.GEarth
         }
 
         private bool _isConnected;
+        /// <inheritdoc />
         public bool IsConnected
         {
             get => _isConnected;
@@ -180,6 +200,7 @@ namespace Xabbo.GEarth
         }
 
         private string _clientIdentifier = string.Empty;
+        /// <inheritdoc />
         public string ClientIdentifier
         {
             get => _clientIdentifier;
@@ -187,17 +208,17 @@ namespace Xabbo.GEarth
         }
 
         private ClientType _client = ClientType.Unknown;
+        /// <inheritdoc />
         public ClientType Client
         {
             get => _client;
             private set => Set(ref _client, value);
         }
 
-        public void Send(Header header, params object[] values) => SendAsync(header, values);
-        public void Send(IReadOnlyPacket packet) => SendAsync(packet);
-        public Task SendAsync(Header header, params object[] values) => ForwardPacketAsync(Packet.Compose(Client, header, values));
-        public Task SendAsync(IReadOnlyPacket packet) => ForwardPacketAsync(packet);
+        /// <inheritdoc />
+        public ValueTask SendAsync(IReadOnlyPacket packet) => ForwardPacketAsync(packet);
 
+        /// <inheritdoc />
         public Task<IPacket> ReceiveAsync(HeaderSet headers, int timeout = -1,
             bool block = false, CancellationToken cancellationToken = default)
         {
@@ -205,6 +226,7 @@ namespace Xabbo.GEarth
                 .ExecuteAsync(timeout, cancellationToken);
         }
 
+        /// <inheritdoc />
         public Task<IPacket> ReceiveAsync(Header header, int timeout = -1,
             bool block = false, CancellationToken cancellationToken = default)
         {
@@ -212,6 +234,7 @@ namespace Xabbo.GEarth
                 .ExecuteAsync(timeout, cancellationToken);
         }
 
+        /// <inheritdoc />
         public Task<IPacket> ReceiveAsync(ITuple headers, int timeout = -1,
             bool block = false, CancellationToken cancellationToken = default)
         {
@@ -244,6 +267,7 @@ namespace Xabbo.GEarth
             : this(new UnifiedMessageManager("messages.ini"), options)
         { }
 
+        /// <inheritdoc />
         public async Task RunAsync()
         {
             if (IsRunning)
@@ -270,6 +294,7 @@ namespace Xabbo.GEarth
             }
         }
 
+        /// <inheritdoc />
         public void Stop()
         {
             if (!IsRunning) return;
@@ -414,7 +439,7 @@ namespace Xabbo.GEarth
                     break;
                 }
 
-                FlushResult result = await writer.FlushAsync();
+                FlushResult result = await writer.FlushAsync(cancellationToken);
                 if (result.IsCompleted) break;
             }
 
@@ -439,7 +464,7 @@ namespace Xabbo.GEarth
                     buffer = buffer.Slice(4);
                     Header header = Header.In(ParsePacketHeader(buffer));
 
-                    Packet packet = new(header, buffer.Slice(2, packetLength - 2));
+                    using Packet packet = new(header, buffer.Slice(2, packetLength - 2));
 
                     buffer = buffer.Slice(packetLength);
 
@@ -464,9 +489,9 @@ namespace Xabbo.GEarth
             await reader.CompleteAsync(error);
         }
 
-        private Task HandlePacketAsync(IReadOnlyPacket packet)
+        private ValueTask HandlePacketAsync(IReadOnlyPacket packet)
         {
-            return ((GIncoming)(packet.Header.Value ?? -1)) switch
+            return (GIncoming)(packet.Header.Value ?? -1) switch
             {
                 GIncoming.Click => HandleClick(packet),
                 GIncoming.InfoRequest => HandleInfoRequest(packet),
@@ -475,46 +500,72 @@ namespace Xabbo.GEarth
                 GIncoming.ConnectionStart => HandleConnectionStart(packet),
                 GIncoming.ConnectionEnd => HandleConnectionEnd(packet),
                 GIncoming.Init => HandleInit(packet),
-                _ => Task.CompletedTask
+                _ => ValueTask.CompletedTask
             };
         }
 
-        private Task HandleClick(IReadOnlyPacket packet)
+        private ValueTask HandleClick(IReadOnlyPacket _)
         {
             OnClicked();
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
-        private Task HandleInfoRequest(IReadOnlyPacket packet)
+        private async ValueTask HandleInfoRequest(IReadOnlyPacket _)
         {
-            return SendInternalAsync(
-                Packet.Compose(
-                    Header.Out((short)GOutgoing.Info),
-                    Options.Name,
-                    Options.Author,
-                    Options.Version,
-                    Options.Description,
-                    Options.ShowEventButton,
-                    Options.IsInstalledExtension,
-                    Options.FileName,
-                    Options.Cookie,
-                    Options.ShowLeaveButton,
-                    Options.ShowDeleteButton
-                )
+            using Packet p = new(
+                ClientType.Unknown,
+                Header.Out((short)GOutgoing.Info),
+                Options.Name.Length
+                + Options.Author.Length
+                + Options.Version.Length
+                + Options.Description.Length
+                + 1 // show event button
+                + 1 // is installed extension
+                + Options.FileName.Length
+                + Options.Cookie.Length
+                + 1 // show leave button
+                + 1 // show delete button
             );
+
+            p.Write(
+                Options.Name,
+                Options.Author,
+                Options.Version,
+                Options.Description,
+                Options.ShowEventButton,
+                Options.IsInstalledExtension,
+                Options.FileName,
+                Options.Cookie,
+                Options.ShowLeaveButton,
+                Options.ShowDeleteButton
+            );
+
+            await SendInternalAsync(p);
         }
 
+        /* int length
+         * byte[length] intercepted packet info, a tab delimited "string" with 4 sections:
+         *   1: whether the packet is blocked, either '0' or '1'
+         *   2: an integer represented as a string, the index/sequence number of the packet
+         *   3: the destination of the intercepted packet, either "TOCLIENT" or "TOSERVER"
+         *   4: the packet data, which consists of:
+         *     1: whether the packet has been modified by another extension, either '0' or '1'
+         *     2: int length (of the 2-byte header + data)
+         *     3: short header
+         *     4: byte[] data
+         */
         private InterceptArgs ParseInterceptArgs(IReadOnlyPacket packet)
         {
-            const byte TAB = 0x09;
+            ReadOnlySpan<byte> packetBuffer = packet.Buffer;
 
-            ReadOnlySpan<byte> span = packet.GetBuffer().Span[4..];
+            int length = BinaryPrimitives.ReadInt32BigEndian(packetBuffer[0..4]);
+            ReadOnlySpan<byte> data = packetBuffer[4..(4+length)];
 
             Span<int> tabs = stackalloc int[3];
             int current = 0;
-            for (int i = 0; i < span.Length; i++)
+            for (int i = 0; i < data.Length; i++)
             {
-                if (span[i] == TAB)
+                if (data[i] == TAB)
                 {
                     tabs[current++] = i;
                     if (current == tabs.Length)
@@ -523,16 +574,16 @@ namespace Xabbo.GEarth
             }
 
             if (current != tabs.Length)
-                throw new InvalidOperationException("Invalid packet intercept data (insufficient delimiter bytes)");
+                throw new InvalidOperationException("Invalid packet intercept data (insufficient delimiter bytes).");
 
-            bool isBlocked = span[0] == '1';
-            int index = int.Parse(Encoding.ASCII.GetString(span[(tabs[0] + 1)..tabs[1]]));
-            bool isOutgoing = span[tabs[1] + 3] == 'S';
-            bool isModified = span[tabs[2] + 1] == '1';
+            bool isBlocked = data[0] == '1';
+            int index = int.Parse(Encoding.ASCII.GetString(data[(tabs[0] + 1)..tabs[1]]));
+            bool isOutgoing = data[tabs[1] + 3] == 'S';
+            bool isModified = data[tabs[2] + 1] == '1';
 
             Destination destination = isOutgoing ? Destination.Server : Destination.Client;
 
-            ReadOnlySpan<byte> packetSpan = span[(tabs[2] + 2)..];
+            ReadOnlySpan<byte> packetSpan = data[(tabs[2] + 2)..];
             short headerValue = BinaryPrimitives.ReadInt16BigEndian(packetSpan[4..6]);
 
             if (!Messages.TryGetHeaderByValue(destination, Client, headerValue, out Header? header))
@@ -540,15 +591,10 @@ namespace Xabbo.GEarth
                 header = new Header(destination, headerValue);
             }
 
-            return new InterceptArgs(
-                destination,
-                Client,
-                index,
-                new Packet(Client, header, packetSpan[6..])
-            );
+            return new InterceptArgs(destination, new Packet(Client, header, packetSpan[6..])) { Step = index };
         }
 
-        private async Task HandlePacketIntercept(IReadOnlyPacket packet)
+        private async ValueTask HandlePacketIntercept(IReadOnlyPacket packet)
         {
             using InterceptArgs args = ParseInterceptArgs(packet);
 
@@ -558,36 +604,66 @@ namespace Xabbo.GEarth
                 Dispatcher.DispatchMessage(this, args.Packet);
             Dispatcher.DispatchIntercept(args);
 
-            var response = new Packet(Header.Out((short)GOutgoing.ManipulatedPacket));
+            string stepString = args.Step.ToString();
+            int stepByteCount = Encoding.ASCII.GetByteCount(stepString);
 
-            response.WriteInt(-1);
+            using Packet p = new(
+                ClientType.Unknown,
+                Header.Out((short)GOutgoing.ManipulatedPacket),
+                // initial packet buffer size
+                4 // length
+                + 1 // is blocked
+                + 1 // tab
+                + stepByteCount // step string
+                + 1 // tab
+                + 8 // "TOCLIENT" | "TOSERVER"
+                + 1 // tab
+                + 1 // is modified
+                + 4 // header + packet length
+                + 2 // header
+                + packet.Length // packet data
+            );
 
-            response.WriteByte((byte)(args.IsBlocked ? '1' : '0'));
-            response.WriteByte(0x09);
+            // length placeholder
+            p.WriteInt(-1);
 
-            response.WriteBytes(Encoding.ASCII.GetBytes(args.Step.ToString()));
-            response.WriteByte(0x09);
+            // is blocked
+            p.WriteByte((byte)(args.IsBlocked ? '1' : '0'));
 
-            response.WriteBytes(args.Destination == Destination.Client ? _toClientBytes : _toServerBytes);
-            response.WriteByte(0x09);
+            p.WriteByte(TAB);
 
-            response.WriteByte((byte)((args.IsModified) ? '1' : '0'));
-            response.WriteInt(2 + args.Packet.Length);
-            response.WriteShort(args.Packet.Header.GetValue(Client));
-            response.WriteBytes(args.Packet.GetBuffer().Span);
+            // packet sequence number as a string
+            Encoding.ASCII.GetBytes(stepString, p.GetSpan(stepByteCount));
+            p.WriteBytes(Encoding.ASCII.GetBytes(args.Step.ToString()));
 
-            response.Position = 0;
-            response.WriteInt(response.Length - 4);
+            p.WriteByte(TAB);
 
-            await SendInternalAsync(response);
+            // packet destination
+            p.WriteBytes((args.Destination == Destination.Client ? TOCLIENT : TOSERVER).Span);
+
+            p.WriteByte(TAB);
+
+            // is modified
+            p.WriteByte((byte)((args.IsModified) ? '1' : '0'));
+            // header + packet length
+            p.WriteInt(2 + args.Packet.Length);
+            // packet header
+            p.WriteShort(args.Packet.Header.GetValue(Client));
+            // packet data
+            p.WriteBytes(args.Packet.Buffer);
+
+            p.Position = 0;
+            p.WriteInt(p.Length - 4);
+
+            await SendInternalAsync(p);
         }
 
-        private Task HandleFlagsCheck(IReadOnlyPacket packet)
+        private ValueTask HandleFlagsCheck(IReadOnlyPacket packet)
         {
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
-        private Task HandleConnectionStart(IReadOnlyPacket packet)
+        private ValueTask HandleConnectionStart(IReadOnlyPacket packet)
         {
             string host = packet.ReadString();
             int port = packet.ReadInt();
@@ -604,11 +680,11 @@ namespace Xabbo.GEarth
             for (int i = 0; i < n; i++)
             {
                 int id = packet.ReadInt();
-                string hash = packet.ReadString();
+                packet.Position += packet.ReadShort(); // string hash = packet.ReadString();
                 string name = packet.ReadString();
-                string structure = packet.ReadString();
+                packet.Position += packet.ReadShort(); // string structure = packet.ReadString();
                 bool isOutgoing = packet.ReadBool();
-                string source = packet.ReadString();
+                packet.Position += packet.ReadShort(); // string source = packet.ReadString();
 
                 messages.Add(new ClientMessageInfo
                 {
@@ -633,29 +709,29 @@ namespace Xabbo.GEarth
                 Messages = messages
             });
 
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
-        private Task HandleConnectionEnd(IReadOnlyPacket packet)
+        private ValueTask HandleConnectionEnd(IReadOnlyPacket packet)
         {
             IsConnected = false;
             Dispatcher.ReleaseAll();
             OnDisconnected();
             
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
-        private Task HandleInit(IReadOnlyPacket packet)
+        private ValueTask HandleInit(IReadOnlyPacket packet)
         {
             bool? isGameConnected = packet.Available > 0 ? packet.ReadBool() : null;
 
             Initialized?.Invoke(this, new InterceptorInitializedEventArgs(isGameConnected));
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
-        private Task ForwardPacketAsync(IReadOnlyPacket packet)
+        private async ValueTask ForwardPacketAsync(IReadOnlyPacket packet)
         {
-            if (!IsConnected) return Task.CompletedTask;
+            if (!IsConnected) return;
 
             if (packet.Header.Destination != Destination.Client &&
                 packet.Header.Destination != Destination.Server)
@@ -663,17 +739,35 @@ namespace Xabbo.GEarth
                 throw new InvalidOperationException("Unknown packet destination.");
             }
 
-            return SendInternalAsync(
-                new Packet(Header.Out((short)GOutgoing.SendMessage))
-                    .WriteByte((byte)(packet.Header.IsOutgoing ? 1 : 0))
-                    .WriteInt(6 + packet.Length) // length of (packet length + header + data)
-                    .WriteInt(2 + packet.Length) // length of (header + data)
-                    .WriteShort(packet.Header.GetValue(Client))
-                    .WriteBytes(packet.GetBuffer().Span)
-            );
+            using IReadOnlyPacket p = new Packet(ClientType.Unknown, Header.Out((short)GOutgoing.SendMessage), 11 + packet.Length)
+                .WriteByte((byte)(packet.Header.IsOutgoing ? 1 : 0))
+                .WriteInt(6 + packet.Length) // length of (packet length + header + data)
+                .WriteInt(2 + packet.Length) // length of (header + data)
+                .WriteShort(packet.Header.GetValue(Client))
+                .WriteBytes(packet.Buffer);
+
+            await SendInternalAsync(p);
         }
 
-        private async Task SendInternalAsync(IReadOnlyPacket packet)
+        private void SendInternal(IReadOnlyPacket packet)
+        {
+            NetworkStream? ns = _ns;
+            if (ns is null) return;
+
+            short headerValue = packet.Header.Value ?? throw new Exception("Invalid packet header.");
+
+            _sendSemaphore.Wait();
+            try
+            {
+                BinaryPrimitives.WriteInt32BigEndian(_buffer.Span[0..4], 2 + packet.Length);
+                BinaryPrimitives.WriteInt16BigEndian(_buffer.Span[4..6], headerValue);
+                ns.Write(_buffer.Span[0..6]);
+                ns.Write(packet.Buffer);
+            }
+            finally { _sendSemaphore.Release(); }
+        }
+
+        private async ValueTask SendInternalAsync(IReadOnlyPacket packet)
         {
             NetworkStream? ns = _ns;
             if (ns is null) return;
@@ -686,7 +780,7 @@ namespace Xabbo.GEarth
                 BinaryPrimitives.WriteInt32BigEndian(_buffer.Span[0..4], 2 + packet.Length);
                 BinaryPrimitives.WriteInt16BigEndian(_buffer.Span[4..6], headerValue);
                 await ns.WriteAsync(_buffer[0..6]);
-                await ns.WriteAsync(packet.GetBuffer());
+                await ns.WriteAsync(packet.GetMemory());
             }
             finally { _sendSemaphore.Release(); }
         }
