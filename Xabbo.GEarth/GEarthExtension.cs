@@ -82,8 +82,6 @@ namespace Xabbo.GEarth
         /// <inheritdoc />
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        private readonly int _remotePort;
-
         private readonly SemaphoreSlim _sendSemaphore = new(1, 1);
         private readonly Memory<byte> _buffer = new byte[6];
 
@@ -217,6 +215,9 @@ namespace Xabbo.GEarth
 
         /// <inheritdoc />
         public ValueTask SendAsync(IReadOnlyPacket packet) => ForwardPacketAsync(packet);
+
+        /// <inheritdoc />
+        public void Send(IReadOnlyPacket packet) => ForwardPacket(packet);
 
         /// <inheritdoc />
         public Task<IPacket> ReceiveAsync(HeaderSet headers, int timeout = -1,
@@ -727,6 +728,38 @@ namespace Xabbo.GEarth
             return ValueTask.CompletedTask;
         }
 
+        /// <summary>
+        /// Creates a packet that instructs G-Earth to forward the specified packet to the client or server.
+        /// </summary>
+        private IReadOnlyPacket CreateForwardingPacket(IReadOnlyPacket packet) =>
+            new Packet(ClientType.Unknown, Header.Out((short)GOutgoing.SendMessage), 11 + packet.Length)
+                .WriteByte((byte)(packet.Header.IsOutgoing ? 1 : 0))
+                .WriteInt(6 + packet.Length) // length of (packet length + header + data)
+                .WriteInt(2 + packet.Length) // length of (header + data)
+                .WriteShort(packet.Header.GetValue(Client))
+                .WriteBytes(packet.Buffer);
+
+        /// <summary>
+        /// Instructs G-Earth to forward the specified packet to the client or server.
+        /// </summary>
+        private void ForwardPacket(IReadOnlyPacket packet)
+        {
+            if (!IsConnected) return;
+
+            if (packet.Header.Destination != Destination.Client &&
+                packet.Header.Destination != Destination.Server)
+            {
+                throw new InvalidOperationException("Unknown packet destination.");
+            }
+
+            using IReadOnlyPacket p = CreateForwardingPacket(packet);
+
+            SendInternal(p);
+        }
+
+        /// <summary>
+        /// Instructs G-Earth to forward the specified packet to the client or server.
+        /// </summary>
         private async ValueTask ForwardPacketAsync(IReadOnlyPacket packet)
         {
             if (!IsConnected) return;
@@ -737,16 +770,14 @@ namespace Xabbo.GEarth
                 throw new InvalidOperationException("Unknown packet destination.");
             }
 
-            using IReadOnlyPacket p = new Packet(ClientType.Unknown, Header.Out((short)GOutgoing.SendMessage), 11 + packet.Length)
-                .WriteByte((byte)(packet.Header.IsOutgoing ? 1 : 0))
-                .WriteInt(6 + packet.Length) // length of (packet length + header + data)
-                .WriteInt(2 + packet.Length) // length of (header + data)
-                .WriteShort(packet.Header.GetValue(Client))
-                .WriteBytes(packet.Buffer);
+            using IReadOnlyPacket p = CreateForwardingPacket(packet);
 
             await SendInternalAsync(p);
         }
 
+        /// <summary>
+        /// Sends the specified packet to G-Earth.
+        /// </summary>
         private void SendInternal(IReadOnlyPacket packet)
         {
             NetworkStream? ns = _ns;
@@ -765,6 +796,9 @@ namespace Xabbo.GEarth
             finally { _sendSemaphore.Release(); }
         }
 
+        /// <summary>
+        /// Sends the specified packet to G-Earth.
+        /// </summary>
         private async ValueTask SendInternalAsync(IReadOnlyPacket packet)
         {
             NetworkStream? ns = _ns;
