@@ -1,6 +1,5 @@
 ﻿using Xabbo.Interceptor;
 using Xabbo.Messages;
-using Xabbo.Messages.Attributes;
 using Xabbo.GEarth;
 
 var ext = new CustomExtension(GEarthOptions.Default
