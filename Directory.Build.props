@@ -1,5 +1,6 @@
 <Project>
- <PropertyGroup>
-    <SolutionDir>$(MSBuildThisFileDirectory)</SolutionDir>
- </PropertyGroup>
+	<PropertyGroup>
+		<SolutionDir>$(MSBuildThisFileDirectory)</SolutionDir>
+	</PropertyGroup>
+	<Import Project="../*Directory.Build.props" />
 </Project>
