@@ -514,32 +514,28 @@ namespace Xabbo.GEarth
         private async ValueTask HandleInfoRequest(IReadOnlyPacket _)
         {
             using Packet p = new(
-                ClientType.Unknown,
                 Header.Out((short)GOutgoing.Info),
-                Options.Name.Length
-                + Options.Author.Length
-                + Options.Version.Length
-                + Options.Description.Length
-                + 1 // show event button
-                + 1 // is installed extension
-                + Options.FileName.Length
-                + Options.Cookie.Length
-                + 1 // show leave button
-                + 1 // show delete button
+                size:
+                    16
+                    + Options.Name.Length
+                    + Options.Author.Length
+                    + Options.Version.Length
+                    + Options.Description.Length
+                    + Options.FileName.Length
+                    + Options.Cookie.Length
             );
 
-            p.Write(
-                Options.Name,
-                Options.Author,
-                Options.Version,
-                Options.Description,
-                Options.ShowEventButton,
-                Options.IsInstalledExtension,
-                Options.FileName,
-                Options.Cookie,
-                Options.ShowLeaveButton,
-                Options.ShowDeleteButton
-            );
+            p
+                .WriteString(Options.Name)
+                .WriteString(Options.Author)
+                .WriteString(Options.Version)
+                .WriteString(Options.Description)
+                .WriteBool(Options.ShowEventButton)
+                .WriteBool(Options.IsInstalledExtension)
+                .WriteString(Options.FileName)
+                .WriteString(Options.Cookie)
+                .WriteBool(Options.ShowLeaveButton)
+                .WriteBool(Options.ShowDeleteButton);
 
             await SendInternalAsync(p);
         }
@@ -592,7 +588,7 @@ namespace Xabbo.GEarth
                 header = new Header(destination, headerValue);
             }
 
-            return new InterceptArgs(this, destination, new Packet(Client, header, packetSpan[6..])) { Step = index };
+            return new InterceptArgs(this, destination, new Packet(header, packetSpan[6..], Client)) { Step = index };
         }
 
         private async ValueTask HandlePacketIntercept(IReadOnlyPacket packet)
@@ -608,22 +604,7 @@ namespace Xabbo.GEarth
             string stepString = args.Step.ToString();
             int stepByteCount = Encoding.ASCII.GetByteCount(stepString);
 
-            using Packet p = new(
-                ClientType.Unknown,
-                Header.Out((short)GOutgoing.ManipulatedPacket),
-                // initial packet buffer size
-                4 // length
-                + 1 // is blocked
-                + 1 // tab
-                + stepByteCount // step string
-                + 1 // tab
-                + 8 // "TOCLIENT" | "TOSERVER"
-                + 1 // tab
-                + 1 // is modified
-                + 4 // header + packet length
-                + 2 // header
-                + packet.Length // packet data
-            );
+            using Packet p = new(Header.Out((short)GOutgoing.ManipulatedPacket), size: 23 + stepByteCount + packet.Length);
 
             // length placeholder
             p.WriteInt(-1);
@@ -657,10 +638,7 @@ namespace Xabbo.GEarth
             await SendInternalAsync(p);
         }
 
-        private ValueTask HandleFlagsCheck(IReadOnlyPacket packet)
-        {
-            return ValueTask.CompletedTask;
-        }
+        private ValueTask HandleFlagsCheck(IReadOnlyPacket _) => ValueTask.CompletedTask;
 
         private ValueTask HandleConnectionStart(IReadOnlyPacket packet)
         {
@@ -732,7 +710,7 @@ namespace Xabbo.GEarth
         /// Creates a packet that instructs G-Earth to forward the specified packet to the client or server.
         /// </summary>
         private IReadOnlyPacket CreateForwardingPacket(IReadOnlyPacket packet) =>
-            new Packet(ClientType.Unknown, Header.Out((short)GOutgoing.SendMessage), 11 + packet.Length)
+            new Packet(Header.Out((short)GOutgoing.SendMessage), size: 11 + packet.Length)
                 .WriteByte((byte)(packet.Header.IsOutgoing ? 1 : 0))
                 .WriteInt(6 + packet.Length) // length of (packet length + header + data)
                 .WriteInt(2 + packet.Length) // length of (header + data)
