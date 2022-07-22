@@ -756,7 +756,7 @@ namespace Xabbo.GEarth
         /// <summary>
         /// Sends the specified packet to G-Earth.
         /// </summary>
-        private void SendInternal(IReadOnlyPacket packet)
+        protected void SendInternal(IReadOnlyPacket packet)
         {
             NetworkStream? ns = _ns;
             if (ns is null) return;
@@ -777,7 +777,7 @@ namespace Xabbo.GEarth
         /// <summary>
         /// Sends the specified packet to G-Earth.
         /// </summary>
-        private async ValueTask SendInternalAsync(IReadOnlyPacket packet)
+        protected async ValueTask SendInternalAsync(IReadOnlyPacket packet)
         {
             NetworkStream? ns = _ns;
             if (ns is null) return;
