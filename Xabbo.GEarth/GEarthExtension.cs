@@ -60,6 +60,14 @@ namespace Xabbo.GEarth
             ExtensionConsoleLog = 98
         }
 
+        /// <summary>
+        /// Sets the value of the specified field and raises the <see cref="PropertyChanged"/> event if the value was changed.
+        /// </summary>
+        /// <typeparam name="T">The type of the field.</typeparam>
+        /// <param name="field">The backing field.</param>
+        /// <param name="value">The value to set the field to.</param>
+        /// <param name="propertyName">The name of the property used to access the backing field.</param>
+        /// <returns><see langword="true"/> if the value of the field changed, otherwise <see langword="false"/>.</returns>
         protected bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
         {
             if (EqualityComparer<T>.Default.Equals(field, value))
@@ -74,6 +82,10 @@ namespace Xabbo.GEarth
             }
         }
 
+        /// <summary>
+        /// Invokes <see cref="PropertyChanged"/> to notify listeners that a property on this instance has changed.
+        /// </summary>
+        /// <param name="propertyName">The name of the property that changed.</param>
         protected virtual void RaisePropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -140,7 +152,11 @@ namespace Xabbo.GEarth
         /// <inheritdoc cref="Intercepted" />
         protected virtual void OnIntercepted(InterceptArgs e) => Intercepted?.Invoke(this, e);
 
+        /// <summary>
+        /// Invoked when the play button of this extension is clicked in the G-Earth user interface.
+        /// </summary>
         public event EventHandler? Clicked;
+        /// <inheritdoc cref="Clicked" />
         protected virtual void OnClicked() => Clicked?.Invoke(this, EventArgs.Empty);
         #endregion
 
@@ -689,7 +705,7 @@ namespace Xabbo.GEarth
             return ValueTask.CompletedTask;
         }
 
-        private ValueTask HandleConnectionEnd(IReadOnlyPacket packet)
+        private ValueTask HandleConnectionEnd(IReadOnlyPacket _)
         {
             IsConnected = false;
             Dispatcher.ReleaseAll();
