@@ -725,27 +725,27 @@ namespace Xabbo.GEarth
         /// <summary>
         /// Creates a packet that instructs G-Earth to forward the specified packet to the client or server.
         /// </summary>
-        private IReadOnlyPacket CreateForwardingPacket(IReadOnlyPacket packet) =>
-            new Packet(Header.Out((short)GOutgoing.SendMessage), size: 11 + packet.Length)
-                .WriteByte((byte)(packet.Header.IsOutgoing ? 1 : 0))
-                .WriteInt(6 + packet.Length) // length of (packet length + header + data)
-                .WriteInt(2 + packet.Length) // length of (header + data)
-                .WriteShort(packet.Header.GetValue(Client))
-                .WriteBytes(packet.Buffer);
-
-        /// <summary>
-        /// Instructs G-Earth to forward the specified packet to the client or server.
-        /// </summary>
-        private void ForwardPacket(IReadOnlyPacket packet)
+        private IReadOnlyPacket CreateForwardingPacket(IReadOnlyPacket packet)
         {
-            if (!IsConnected) return;
-
             if (packet.Header.Destination != Destination.Client &&
                 packet.Header.Destination != Destination.Server)
             {
                 throw new InvalidOperationException("Unknown packet destination.");
             }
 
+            return new Packet(Header.Out((short)GOutgoing.SendMessage), size: 11 + packet.Length)
+                .WriteByte((byte)(packet.Header.IsOutgoing ? 1 : 0))
+                .WriteInt(6 + packet.Length) // length of (packet length + header + data)
+                .WriteInt(2 + packet.Length) // length of (header + data)
+                .WriteShort(packet.Header.GetValue(Client))
+                .WriteBytes(packet.Buffer);
+        }
+
+        /// <summary>
+        /// Instructs G-Earth to forward the specified packet to the client or server.
+        /// </summary>
+        private void ForwardPacket(IReadOnlyPacket packet)
+        {
             using IReadOnlyPacket p = CreateForwardingPacket(packet);
 
             SendInternal(p);
@@ -756,14 +756,6 @@ namespace Xabbo.GEarth
         /// </summary>
         private async ValueTask ForwardPacketAsync(IReadOnlyPacket packet)
         {
-            if (!IsConnected) return;
-
-            if (packet.Header.Destination != Destination.Client &&
-                packet.Header.Destination != Destination.Server)
-            {
-                throw new InvalidOperationException("Unknown packet destination.");
-            }
-
             using IReadOnlyPacket p = CreateForwardingPacket(packet);
 
             await SendInternalAsync(p);
