@@ -25,13 +25,12 @@ namespace Xabbo.GEarth
     /// </summary>
     public class GEarthExtension : IRemoteInterceptor, IInterceptHandler, INotifyPropertyChanged
     {
-        const byte TAB = 0x09;
-
-        private const int CONNECT_INTERVAL = 1000;
+        const byte TabChar = 0x09;
+        const int ConnectInterval = 1000;
 
         private static readonly ReadOnlyMemory<byte>
-            TOCLIENT = Encoding.ASCII.GetBytes("TOCLIENT"),
-            TOSERVER = Encoding.ASCII.GetBytes("TOSERVER");
+            ToClientBytes = Encoding.ASCII.GetBytes("TOCLIENT"),
+            ToServerBytes = Encoding.ASCII.GetBytes("TOSERVER");
 
         private enum GIncoming : short
         {
@@ -404,7 +403,7 @@ namespace Xabbo.GEarth
                         throw new Exception($"Failed to connect to G-Earth on port {Options.Port}.");
                 }
 
-                await Task.Delay(CONNECT_INTERVAL, cancellationToken);
+                await Task.Delay(ConnectInterval, cancellationToken);
             }
         }
 
@@ -578,7 +577,7 @@ namespace Xabbo.GEarth
             int current = 0;
             for (int i = 0; i < data.Length; i++)
             {
-                if (data[i] == TAB)
+                if (data[i] == TabChar)
                 {
                     tabs[current++] = i;
                     if (current == tabs.Length)
@@ -628,16 +627,16 @@ namespace Xabbo.GEarth
             // is blocked
             p.WriteByte((byte)(args.IsBlocked ? '1' : '0'));
 
-            p.WriteByte(TAB);
+            p.WriteByte(TabChar);
 
             // packet sequence number as a string
             Encoding.ASCII.GetBytes(stepString, p.GetSpan(stepByteCount));
-            p.WriteByte(TAB);
+            p.WriteByte(TabChar);
 
             // packet destination
-            p.WriteBytes((args.Destination == Destination.Client ? TOCLIENT : TOSERVER).Span);
+            p.WriteBytes((args.Destination == Destination.Client ? ToClientBytes : ToServerBytes).Span);
 
-            p.WriteByte(TAB);
+            p.WriteByte(TabChar);
 
             // is modified
             p.WriteByte((byte)((args.IsModified) ? '1' : '0'));
