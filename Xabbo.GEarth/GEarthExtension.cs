@@ -10,17 +10,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 
 using Xabbo.Common;
 using Xabbo.Messages;
-using Xabbo.Extension;
 using Xabbo.Interceptor;
 using Xabbo.Interceptor.Dispatcher;
 using Xabbo.Interceptor.Tasks;
-
-using DescriptionAttribute = Xabbo.Extension.DescriptionAttribute;
 
 namespace Xabbo.GEarth
 {
