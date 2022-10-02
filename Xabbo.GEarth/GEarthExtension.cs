@@ -300,13 +300,16 @@ namespace Xabbo.GEarth
             }
             finally
             {
+                IsRunning = false;
+
+                _cancellation?.Dispose();
+                _cancellation = null;
+
                 Dispatcher.ReleaseAll();
 
                 _tcpClient?.Close();
                 _tcpClient = null;
                 _ns = null;
-
-                IsRunning = false;
             }
         }
 
