@@ -5,6 +5,8 @@ using System.Reflection;
 
 using Microsoft.Extensions.Configuration;
 
+using Xabbo.Extension;
+
 namespace Xabbo.GEarth
 {
     /// <summary>
@@ -263,6 +265,26 @@ namespace Xabbo.GEarth
                 Cookie = cookie,
                 FileName = file
             };
+        }
+
+        /// <summary>
+        /// Applies the extension attributes attached to the specified type, if they exist,
+        /// and returns the updated <see cref="GEarthOptions"/>.
+        /// </summary>
+        /// <param name="type"></param>
+        internal GEarthOptions WithExtensionAttributes(Type type)
+        {
+            GEarthOptions options = this;
+            if (type.GetCustomAttribute<TitleAttribute>() is TitleAttribute titleAttr)
+                options = options.WithTitle(titleAttr.Title);
+            if (type.GetCustomAttribute<AuthorAttribute>() is AuthorAttribute authorAttr)
+                options = options.WithAuthor(authorAttr.Author);
+            if (type.GetCustomAttribute<DescriptionAttribute>() is DescriptionAttribute descriptionAttr)
+                options = options.WithDescription(descriptionAttr.Description);
+            if (type.GetCustomAttribute<VersionAttribute>() is VersionAttribute versionAttr)
+                options = options.WithVersion(versionAttr.Version);
+
+            return options;
         }
     }
 }
