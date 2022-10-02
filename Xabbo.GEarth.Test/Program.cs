@@ -3,7 +3,7 @@ using Xabbo.Messages;
 using Xabbo.GEarth;
 
 var ext = new CustomExtension(GEarthOptions.Default
-    .WithName("Xabbo.GEarth test")
+    .WithTitle("Xabbo.GEarth test")
     .WithAuthor("b7")
 );
 

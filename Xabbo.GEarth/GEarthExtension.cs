@@ -535,7 +535,7 @@ namespace Xabbo.GEarth
                 Header.Out((short)GOutgoing.Info),
                 size:
                     16
-                    + Options.Name.Length
+                    + Options.Title.Length
                     + Options.Author.Length
                     + Options.Version.Length
                     + Options.Description.Length
@@ -544,7 +544,7 @@ namespace Xabbo.GEarth
             );
 
             p
-                .WriteString(Options.Name)
+                .WriteString(Options.Title)
                 .WriteString(Options.Author)
                 .WriteString(Options.Version)
                 .WriteString(Options.Description)

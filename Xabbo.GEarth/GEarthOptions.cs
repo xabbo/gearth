@@ -25,9 +25,9 @@ namespace Xabbo.GEarth
             .WithAssemblyVersion();
 
         /// <summary>
-        /// The name of the extension.
+        /// The title of the extension.
         /// </summary>
-        public string Name { get; init; }
+        public string Title { get; init; }
 
         /// <summary>
         /// The description of the extension.
@@ -89,7 +89,7 @@ namespace Xabbo.GEarth
         /// </summary>
         public GEarthOptions()
         {
-            Name =
+            Title =
             Description =
             Author =
             Version =
@@ -102,7 +102,7 @@ namespace Xabbo.GEarth
         /// </summary>
         public GEarthOptions(GEarthOptions options)
         {
-            Name = options.Name;
+            Title = options.Title;
             Description = options.Description;
             Author = options.Author;
             Version = options.Version;
@@ -118,19 +118,19 @@ namespace Xabbo.GEarth
         }
 
         /// <summary>
-        /// Creates a new <see cref="GEarthOptions"/> with the <see cref="Name"/> changed.
+        /// Creates a new <see cref="GEarthOptions"/> with the <see cref="Title"/> changed.
         /// </summary>
-        public GEarthOptions WithName(string title) => new(this) { Name = title };
+        public GEarthOptions WithTitle(string title) => new(this) { Title = title };
         
         /// <summary>
-        /// Creates a new <see cref="GEarthOptions"/> with the <see cref="Name"/>
+        /// Creates a new <see cref="GEarthOptions"/> with the <see cref="Title"/>
         /// changed to the name of the current assembly.
         /// </summary>
         public GEarthOptions WithAssemblyName()
         {
             return new(this)
             {
-                Name = Assembly.GetEntryAssembly()?
+                Title = Assembly.GetEntryAssembly()?
                     .GetName().Name
                     ?? "unknown"
             };
