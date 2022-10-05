@@ -610,7 +610,7 @@ namespace Xabbo.GEarth
         {
             using InterceptArgs args = ParseInterceptArgs(packet);
 
-            Intercepted?.Invoke(this, args);
+            OnIntercepted(args);
 
             if (args.IsIncoming)
                 Dispatcher.DispatchPacket(this, args.Packet);
