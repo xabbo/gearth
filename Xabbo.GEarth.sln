@@ -11,7 +11,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.Common", "Xabbo.Commo
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.Common.SourceGeneration", "Xabbo.Common\Xabbo.Common.SourceGeneration\Xabbo.Common.SourceGeneration.csproj", "{0BAB1434-1C49-44FE-927C-61493B8E8DEB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xabbo.GEarth.Test", "Xabbo.GEarth.Test\Xabbo.GEarth.Test.csproj", "{5A58D901-2B2B-4157-B4AD-0690AB8270D5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.GEarth.Example", "Xabbo.GEarth.Example\Xabbo.GEarth.Example.csproj", "{5A58D901-2B2B-4157-B4AD-0690AB8270D5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

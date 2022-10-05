@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Xabbo.GEarth.Example": {
+      "commandName": "Project",
+      "commandLineArgs": "-p 9092"
+    }
+  }
+}
