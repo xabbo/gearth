@@ -12,18 +12,18 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-using Xabbo.Common;
 using Xabbo.Messages;
-using Xabbo.Interceptor;
-using Xabbo.Interceptor.Dispatcher;
+using Xabbo.Messages.Dispatcher;
+using Xabbo.Connection;
+using Xabbo.Extension;
 using Xabbo.Interceptor.Tasks;
 
 namespace Xabbo.GEarth
 {
     /// <summary>
-    /// A <see cref="IRemoteInterceptor"/> implementation for G-Earth.
+    /// An <see cref="IRemoteExtension"/> implementation for G-Earth.
     /// </summary>
-    public class GEarthExtension : IRemoteInterceptor, IInterceptHandler, INotifyPropertyChanged
+    public class GEarthExtension : ConnectionBase, IRemoteExtension, IMessageHandler, INotifyPropertyChanged
     {
         const byte TabChar = 0x09;
         const int ConnectInterval = 1000;
@@ -104,7 +104,7 @@ namespace Xabbo.GEarth
         private CancellationTokenSource _ctsDisconnect;
 
         /// <inheritdoc />
-        public CancellationToken DisconnectToken { get; private set; }
+        public override CancellationToken DisconnectToken => _ctsDisconnect.Token;
 
         #region - Events -
         /// <inheritdoc />
@@ -125,9 +125,9 @@ namespace Xabbo.GEarth
             => InterceptorDisconnected?.Invoke(this, e);
 
         /// <inheritdoc />
-        public event EventHandler<InterceptorInitializedEventArgs>? Initialized;
+        public event EventHandler<ExtensionInitializedEventArgs>? Initialized;
         /// <inheritdoc cref="Initialized" />
-        protected virtual void OnInitialized(InterceptorInitializedEventArgs e) => Initialized?.Invoke(this, e);
+        protected virtual void OnInitialized(ExtensionInitializedEventArgs e) => Initialized?.Invoke(this, e);
 
         /// <inheritdoc />
         public event EventHandler<GameConnectedEventArgs>? Connected;
@@ -141,7 +141,6 @@ namespace Xabbo.GEarth
         {
             _ctsDisconnect.Cancel();
             _ctsDisconnect = new CancellationTokenSource();
-            DisconnectToken = _ctsDisconnect.Token;
 
             Disconnected?.Invoke(this, EventArgs.Empty);
         }
@@ -168,7 +167,7 @@ namespace Xabbo.GEarth
         public IMessageManager Messages { get; }
 
         /// <inheritdoc />
-        public IInterceptDispatcher Dispatcher { get; }
+        public IMessageDispatcher Dispatcher { get; }
 
         /// <summary>
         /// Gets the incoming headers from the message manager.
@@ -206,36 +205,35 @@ namespace Xabbo.GEarth
 
         private bool _isConnected;
         /// <inheritdoc />
-        public bool IsConnected
-        {
-            get => _isConnected;
-            private set => Set(ref _isConnected, value);
-        }
+        public override bool IsConnected => _isConnected;
+        private void SetIsConnected(bool value) => Set(ref _isConnected, value);
 
         private string _clientIdentifier = string.Empty;
         /// <inheritdoc />
-        public string ClientIdentifier
-        {
-            get => _clientIdentifier;
-            private set => Set(ref _clientIdentifier, value);
-        }
+        public override string ClientIdentifier => _clientIdentifier;
+        private void SetClientIdentifier(string value) => Set(ref _clientIdentifier, value);
 
         private ClientType _client = ClientType.Unknown;
         /// <inheritdoc />
-        public ClientType Client
+        public override ClientType Client => _client;
+        private void SetClient(ClientType value) => Set(ref _client, value);
+
+        /// <inheritdoc />
+        public override ValueTask SendAsync(IReadOnlyPacket packet) => ForwardPacketAsync(packet);
+
+        /// <inheritdoc />
+        public override void Send(IReadOnlyPacket packet) => ForwardPacket(packet);
+
+        /// <inheritdoc />
+        public override Task<IPacket> ReceiveAsync(HeaderSet headers, Func<IReadOnlyPacket, bool> shouldCapture,
+            int timeout = -1, bool block = false, CancellationToken cancellationToken = default)
         {
-            get => _client;
-            private set => Set(ref _client, value);
+            return new CaptureMessageTask(this, headers, block, shouldCapture)
+                .ExecuteAsync(timeout, cancellationToken);
         }
 
         /// <inheritdoc />
-        public ValueTask SendAsync(IReadOnlyPacket packet) => ForwardPacketAsync(packet);
-
-        /// <inheritdoc />
-        public void Send(IReadOnlyPacket packet) => ForwardPacket(packet);
-
-        /// <inheritdoc />
-        public Task<IPacket> ReceiveAsync(HeaderSet headers, int timeout = -1,
+        public override Task<IPacket> ReceiveAsync(HeaderSet headers, int timeout = -1,
             bool block = false, CancellationToken cancellationToken = default)
         {
             return new CaptureMessageTask(this, headers, block)
@@ -266,12 +264,11 @@ namespace Xabbo.GEarth
         public GEarthExtension(IMessageManager messages, GEarthOptions options)
         {
             _ctsDisconnect = new CancellationTokenSource();
-            DisconnectToken = _ctsDisconnect.Token;
 
             Messages = messages;
             Options = options.WithExtensionAttributes(GetType());
 
-            Dispatcher = new InterceptDispatcher(messages);
+            Dispatcher = new MessageDispatcher(messages);
         }
 
         /// <summary>
@@ -284,12 +281,12 @@ namespace Xabbo.GEarth
         { }
 
         /// <inheritdoc />
-        public async Task RunAsync()
+        public async Task RunAsync(CancellationToken cancellationToken = default)
         {
             if (IsRunning)
                 throw new InvalidOperationException("The interceptor service is already running.");
 
-            _cancellation = new CancellationTokenSource();
+            _cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             IsRunning = true;
 
@@ -359,7 +356,7 @@ namespace Xabbo.GEarth
                 {
                     if (IsConnected)
                     {
-                        IsConnected = false;
+                        SetIsConnected(false);
                         OnDisconnected();
                     }
 
@@ -616,7 +613,7 @@ namespace Xabbo.GEarth
             Intercepted?.Invoke(this, args);
 
             if (args.IsIncoming)
-                Dispatcher.DispatchMessage(this, args.Packet);
+                Dispatcher.DispatchPacket(this, args.Packet);
             Dispatcher.DispatchIntercept(args);
 
             string stepString = args.Step.ToString();
@@ -663,12 +660,12 @@ namespace Xabbo.GEarth
             string host = packet.ReadString();
             int port = packet.ReadInt();
             string clientVersion = packet.ReadString();
-            ClientIdentifier = packet.ReadString();
+            SetClientIdentifier(packet.ReadString());
             string clientType = packet.ReadString();
 
-            if (clientType.StartsWith("Unity", StringComparison.OrdinalIgnoreCase)) Client = ClientType.Unity;
-            else if (clientType.StartsWith("Flash", StringComparison.OrdinalIgnoreCase)) Client = ClientType.Flash;
-            else Client = ClientType.Unknown;
+            if (clientType.StartsWith("Unity", StringComparison.OrdinalIgnoreCase)) SetClient(ClientType.Unity);
+            else if (clientType.StartsWith("Flash", StringComparison.OrdinalIgnoreCase)) SetClient(ClientType.Flash);
+            else SetClient(ClientType.Unknown);
 
             int n = packet.ReadInt();
             List<IClientMessageInfo> messages = new(n);
@@ -693,7 +690,7 @@ namespace Xabbo.GEarth
             Messages.LoadMessages(messages);
             Dispatcher.Bind(this, Client);
 
-            IsConnected = true;
+            SetIsConnected(true);
             OnConnected(new GameConnectedEventArgs()
             {
                 Host = host,
@@ -709,7 +706,7 @@ namespace Xabbo.GEarth
 
         private ValueTask HandleConnectionEnd(IReadOnlyPacket _)
         {
-            IsConnected = false;
+            SetIsConnected(false);
             Dispatcher.ReleaseAll();
             OnDisconnected();
             
@@ -720,7 +717,7 @@ namespace Xabbo.GEarth
         {
             bool? isGameConnected = packet.Available > 0 ? packet.ReadBool() : null;
 
-            Initialized?.Invoke(this, new InterceptorInitializedEventArgs(isGameConnected));
+            Initialized?.Invoke(this, new ExtensionInitializedEventArgs(isGameConnected));
             return ValueTask.CompletedTask;
         }
 
