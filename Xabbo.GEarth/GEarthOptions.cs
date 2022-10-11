@@ -11,7 +11,7 @@ namespace Xabbo.GEarth;
 /// <summary>
 /// Specifies the options to be used by <see cref="GEarthExtension"/>.
 /// </summary>
-public record GEarthOptions
+public sealed record GEarthOptions
 {
     /// <summary>
     /// The number of version fields to be included when converting the assembly version to a string for <see cref="Default"/>.
