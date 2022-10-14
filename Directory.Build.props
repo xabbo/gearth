@@ -1,6 +1,7 @@
 <Project>
 	<PropertyGroup>
 		<SolutionDir>$(MSBuildThisFileDirectory)</SolutionDir>
+		<XabboCommonDir>$(SolutionDir)lib\Xabbo.Common\</XabboCommonDir>
 	</PropertyGroup>
 	<Import Project="../*Directory.Build.props" />
 </Project>

@@ -9,8 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(SolutionDir)\Xabbo.Common\Xabbo.Common\Xabbo.Common.csproj" />
-    <ProjectReference Include="$(SolutionDir)\Xabbo.GEarth\Xabbo.GEarth.csproj" />
+    <ProjectReference Include="$(XabboCommonDir)src\Xabbo.Common\Xabbo.Common.csproj" />
+    <ProjectReference Include="$(SolutionDir)src\Xabbo.GEarth\Xabbo.GEarth.csproj" />
   </ItemGroup>
 
 </Project>

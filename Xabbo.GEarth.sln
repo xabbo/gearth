@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.1.32228.430
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.GEarth", "Xabbo.GEarth\Xabbo.GEarth.csproj", "{688CC1E7-8EF5-40F5-BFC3-62045BF13120}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.GEarth", "src\Xabbo.GEarth\Xabbo.GEarth.csproj", "{688CC1E7-8EF5-40F5-BFC3-62045BF13120}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Submodules", "Submodules", "{E8BF5185-9038-4A99-8EB1-9A3C2686D7AE}"
 EndProject
@@ -11,7 +11,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.Common", "lib\Xabbo.C
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.Common.SourceGeneration", "lib\Xabbo.Common\src\Xabbo.Common.SourceGeneration\Xabbo.Common.SourceGeneration.csproj", "{0BAB1434-1C49-44FE-927C-61493B8E8DEB}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.GEarth.Example", "Xabbo.GEarth.Example\Xabbo.GEarth.Example.csproj", "{5A58D901-2B2B-4157-B4AD-0690AB8270D5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.GEarth.Example", "src\Xabbo.GEarth.Example\Xabbo.GEarth.Example.csproj", "{5A58D901-2B2B-4157-B4AD-0690AB8270D5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
