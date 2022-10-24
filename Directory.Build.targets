@@ -1,9 +1,0 @@
-<Project>
-	<PropertyGroup>
-		<SolutionDir>$(MSBuildThisFileDirectory)</SolutionDir>
-		<XabboCommonDir>$(SolutionDir)lib\Xabbo.Common\</XabboCommonDir>
-		<XabboCoreDir>$(SolutionDir)lib\Xabbo.Core\</XabboCoreDir>
-		<XabboGEarthDir>$(SolutionDir)lib\Xabbo.GEarth\</XabboGEarthDir>
-	</PropertyGroup>
-	<Import Project="../*Directory.Build.targets" />
-</Project>
