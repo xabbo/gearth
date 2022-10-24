@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
+  <PropertyGroup Label="Project">
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -8,9 +8,8 @@
     <Version>1.0.0</Version>
   </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="$(XabboCommonDir)src\Xabbo.Common\Xabbo.Common.csproj" />
-    <ProjectReference Include="$(SolutionDir)src\Xabbo.GEarth\Xabbo.GEarth.csproj" />
+  <ItemGroup Label="References">
+    <ProjectReference Include="..\Xabbo.GEarth\Xabbo.GEarth.csproj" />
   </ItemGroup>
 
 </Project>
