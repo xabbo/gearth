@@ -206,17 +206,27 @@ namespace Xabbo.GEarth
         private bool _isConnected;
         /// <inheritdoc />
         public override bool IsConnected => _isConnected;
-        private void SetIsConnected(bool value) => Set(ref _isConnected, value);
-
-        private string _clientIdentifier = string.Empty;
-        /// <inheritdoc />
-        public override string ClientIdentifier => _clientIdentifier;
-        private void SetClientIdentifier(string value) => Set(ref _clientIdentifier, value);
+        private void SetIsConnected(bool value) => Set(ref _isConnected, value, nameof(IsConnected));
 
         private ClientType _client = ClientType.Unknown;
         /// <inheritdoc />
         public override ClientType Client => _client;
-        private void SetClient(ClientType value) => Set(ref _client, value);
+        private void SetClient(ClientType value) => Set(ref _client, value, nameof(Client));
+
+        private string _clientIdentifier = string.Empty;
+        /// <inheritdoc />
+        public override string ClientIdentifier => _clientIdentifier;
+        private void SetClientIdentifier(string value) => Set(ref _clientIdentifier, value, nameof(ClientIdentifier));
+
+        private string _clientVersion = string.Empty;
+        /// <inheritdoc />
+        public override string ClientVersion => _clientVersion;
+        private void SetClientVersion(string value) => Set(ref _clientVersion, value, nameof(ClientVersion));
+
+        private Hotel _hotel = Hotel.Unknown;
+        /// <inheritdoc />
+        public override Hotel Hotel => _hotel;
+        private void SetHotel(Hotel value) => Set(ref _hotel, value, nameof(Hotel));
 
         /// <inheritdoc />
         public override ValueTask SendAsync(IReadOnlyPacket packet) => ForwardPacketAsync(packet);
@@ -660,12 +670,17 @@ namespace Xabbo.GEarth
             string host = packet.ReadString();
             int port = packet.ReadInt();
             string clientVersion = packet.ReadString();
-            SetClientIdentifier(packet.ReadString());
+            string clientIdentifier = packet.ReadString();
             string clientType = packet.ReadString();
 
-            if (clientType.StartsWith("Unity", StringComparison.OrdinalIgnoreCase)) SetClient(ClientType.Unity);
-            else if (clientType.StartsWith("Flash", StringComparison.OrdinalIgnoreCase)) SetClient(ClientType.Flash);
-            else SetClient(ClientType.Unknown);
+            ClientType client = ClientType.Unknown;
+            if (clientType.StartsWith("Unity", StringComparison.OrdinalIgnoreCase))
+                client = ClientType.Unity;
+            else if (clientType.StartsWith("Flash", StringComparison.OrdinalIgnoreCase))
+                client = ClientType.Flash;
+
+            Hotel hotel = Hotel.Unknown;
+            try { hotel = Hotel.FromGameHost(host); } catch { }
 
             int n = packet.ReadInt();
             List<IClientMessageInfo> messages = new(n);
@@ -680,7 +695,7 @@ namespace Xabbo.GEarth
 
                 messages.Add(new ClientMessageInfo
                 {
-                    Client = Client,
+                    Client = client,
                     Direction = isOutgoing ? Direction.Outgoing : Direction.Incoming,
                     Header = (short)id,
                     Name = name
@@ -690,14 +705,19 @@ namespace Xabbo.GEarth
             Messages.LoadMessages(messages);
             Dispatcher.Bind(this, Client);
 
+            SetClient(client);
+            SetClientIdentifier(clientIdentifier);
+            SetClientVersion(clientVersion);
+            SetHotel(hotel);
             SetIsConnected(true);
+
             OnConnected(new GameConnectedEventArgs()
             {
                 Host = host,
                 Port = port,
                 ClientVersion = clientVersion,
-                ClientIdentifier = ClientIdentifier,
-                ClientType = Client,
+                ClientIdentifier = clientIdentifier,
+                ClientType = client,
                 Messages = messages
             });
 
@@ -706,9 +726,13 @@ namespace Xabbo.GEarth
 
         private ValueTask HandleConnectionEnd(IReadOnlyPacket _)
         {
-            SetIsConnected(false);
-            Dispatcher.ReleaseAll();
-            OnDisconnected();
+            try
+            {
+                SetIsConnected(false);
+                Dispatcher.ReleaseAll();
+                OnDisconnected();
+            }
+            finally { _hotel = Hotel.Unknown; }
             
             return ValueTask.CompletedTask;
         }
