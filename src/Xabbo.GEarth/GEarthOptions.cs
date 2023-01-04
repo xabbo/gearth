@@ -28,7 +28,7 @@ public sealed record GEarthOptions
     /// <summary>
     /// Creates and returns a new default <see cref="GEarthOptions"/> instance with the specified command line arguments applied.
     /// </summary>
-    public static GEarthOptions FromArgs(string[] args) => Default.WithArguments(args);
+    public static GEarthOptions FromArgs(IList<string> args) => Default.WithArguments(args);
 
     /// <summary>
     /// The title of the extension.
