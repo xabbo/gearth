@@ -603,17 +603,17 @@ public class GEarthExtension : ConnectionBase, IRemoteExtension, IMessageHandler
         bool isOutgoing = data[tabs[1] + 3] == 'S';
         bool isModified = data[tabs[2] + 1] == '1';
 
-        Destination destination = isOutgoing ? Destination.Server : Destination.Client;
+        Direction direction = isOutgoing ? Direction.Outgoing : Direction.Incoming;
 
         ReadOnlySpan<byte> packetSpan = data[(tabs[2] + 2)..];
         short headerValue = BinaryPrimitives.ReadInt16BigEndian(packetSpan[4..6]);
 
-        if (!Messages.TryGetHeaderByValue(destination, Client, headerValue, out Header? header))
+        if (!Messages.TryGetHeaderByValue(direction, Client, headerValue, out Header? header))
         {
-            header = new Header(destination, headerValue);
+            header = new Header(direction, headerValue);
         }
 
-        return new InterceptArgs(this, destination, new Packet(header, packetSpan[6..], Client)) { Step = index };
+        return new InterceptArgs(this, direction, new Packet(header, packetSpan[6..], Client)) { Step = index };
     }
 
     private async ValueTask HandlePacketIntercept(IReadOnlyPacket packet)
@@ -644,7 +644,7 @@ public class GEarthExtension : ConnectionBase, IRemoteExtension, IMessageHandler
         p.WriteByte(TabChar);
 
         // packet destination
-        p.WriteBytes((args.Destination == Destination.Client ? ToClientBytes : ToServerBytes).Span);
+        p.WriteBytes((args.Direction == Direction.Incoming ? ToClientBytes : ToServerBytes).Span);
 
         p.WriteByte(TabChar);
 
@@ -750,8 +750,8 @@ public class GEarthExtension : ConnectionBase, IRemoteExtension, IMessageHandler
     /// </summary>
     private IReadOnlyPacket CreateForwardingPacket(IReadOnlyPacket packet)
     {
-        if (packet.Header.Destination != Destination.Client &&
-            packet.Header.Destination != Destination.Server)
+        if (packet.Header.Direction != Direction.Incoming &&
+            packet.Header.Direction != Direction.Outgoing)
         {
             throw new InvalidOperationException("Unknown packet destination.");
         }
