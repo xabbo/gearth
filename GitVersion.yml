@@ -1,8 +1,12 @@
 assembly-versioning-scheme: MajorMinorPatch
 assembly-file-versioning-scheme: MajorMinorPatch
-assembly-informational-format: '{InformationalVersion}'
+assembly-informational-format: '{FullSemVer}'
 mode: ContinuousDelivery
-branches: {}
-ignore:
-  sha: []
-merge-message-formats: {}
+branches:
+  develop:
+    regex: ^develop$
+    tag: beta
+  xabbo:
+    regex: ^xabbo.*$
+    tag: beta
+    source-branches: ['develop']
