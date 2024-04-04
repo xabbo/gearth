@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
+using Xabbo;
 using Xabbo.Messages;
 using Xabbo.Messages.Dispatcher;
 using Xabbo.Connection;
@@ -540,7 +541,7 @@ public class GEarthExtension : ConnectionBase, IRemoteExtension, IMessageHandler
     {
         using Packet p = new(
             Header.Out((short)GOutgoing.Info),
-            size:
+            capacity:
                 16
                 + Options.Title.Length
                 + Options.Author.Length
@@ -629,7 +630,7 @@ public class GEarthExtension : ConnectionBase, IRemoteExtension, IMessageHandler
         string stepString = args.Step.ToString();
         int stepByteCount = Encoding.ASCII.GetByteCount(stepString);
 
-        using Packet p = new(Header.Out((short)GOutgoing.ManipulatedPacket), size: 23 + stepByteCount + packet.Length);
+        using Packet p = new(Header.Out((short)GOutgoing.ManipulatedPacket), capacity: 23 + stepByteCount + packet.Length);
 
         // length placeholder
         p.WriteInt(-1);
@@ -663,7 +664,7 @@ public class GEarthExtension : ConnectionBase, IRemoteExtension, IMessageHandler
         await SendInternalAsync(p);
     }
 
-    private ValueTask HandleFlagsCheck(IReadOnlyPacket _) => ValueTask.CompletedTask;
+    private static ValueTask HandleFlagsCheck(IReadOnlyPacket _) => ValueTask.CompletedTask;
 
     private ValueTask HandleConnectionStart(IReadOnlyPacket packet)
     {
@@ -679,19 +680,18 @@ public class GEarthExtension : ConnectionBase, IRemoteExtension, IMessageHandler
         else if (clientType.StartsWith("Flash", StringComparison.OrdinalIgnoreCase))
             client = ClientType.Flash;
 
-        Hotel hotel = Hotel.Unknown;
-        try { hotel = Hotel.FromGameHost(host); } catch { }
+        Hotel hotel = Hotel.FromGameHost(host);
 
         int n = packet.ReadInt();
         List<IClientMessageInfo> messages = new(n);
         for (int i = 0; i < n; i++)
         {
             int id = packet.ReadInt();
-            packet.Skip(packet.ReadShort()); // string hash = packet.ReadString();
+            packet.Skip<string>(); // hash
             string name = packet.ReadString();
-            packet.Skip(packet.ReadShort()); // string structure = packet.ReadString();
+            packet.Skip<string>(); // structure
             bool isOutgoing = packet.ReadBool();
-            packet.Skip(packet.ReadShort()); // string source = packet.ReadString();
+            packet.Skip<string>(); // source
 
             messages.Add(new ClientMessageInfo
             {
@@ -748,7 +748,7 @@ public class GEarthExtension : ConnectionBase, IRemoteExtension, IMessageHandler
     /// <summary>
     /// Creates a packet that instructs G-Earth to forward the specified packet to the client or server.
     /// </summary>
-    private IReadOnlyPacket CreateForwardingPacket(IReadOnlyPacket packet)
+    private Packet CreateForwardingPacket(IReadOnlyPacket packet)
     {
         if (packet.Header.Direction != Direction.Incoming &&
             packet.Header.Direction != Direction.Outgoing)
@@ -756,7 +756,7 @@ public class GEarthExtension : ConnectionBase, IRemoteExtension, IMessageHandler
             throw new InvalidOperationException("Unknown packet destination.");
         }
 
-        return new Packet(Header.Out((short)GOutgoing.SendMessage), size: 11 + packet.Length)
+        return new Packet(Header.Out((short)GOutgoing.SendMessage), capacity: 11 + packet.Length)
             .WriteByte((byte)(packet.Header.IsOutgoing ? 1 : 0))
             .WriteInt(6 + packet.Length) // length of (packet length + header + data)
             .WriteInt(2 + packet.Length) // length of (header + data)
