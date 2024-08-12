@@ -24,7 +24,7 @@ class ExampleExtension : GEarthExtension
         Console.ResetColor();
     }
 
-    protected override void OnClicked()
+    protected override void OnActivated()
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine($"> Extension clicked in G-Earth.\n");

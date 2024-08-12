@@ -180,27 +180,4 @@ public sealed record GEarthOptions
             FileName = file
         };
     }
-
-    /// <summary>
-    /// Applies the extension attributes attached to the specified type, if they exist,
-    /// and returns the updated <see cref="GEarthOptions"/>.
-    /// </summary>
-    /// <param name="type">The type that derives from <see cref="GEarthExtension"/>.</param>
-    internal GEarthOptions WithExtensionAttributes(Type type)
-    {
-        if (!type.IsAssignableTo(typeof(GEarthExtension)))
-            throw new ArgumentException("The specified type must derive from GEarthExtension.");
-
-        GEarthOptions options = this;
-        if (type.GetCustomAttribute<TitleAttribute>() is TitleAttribute titleAttr)
-            options = options with { Title = titleAttr.Title };
-        if (type.GetCustomAttribute<AuthorAttribute>() is AuthorAttribute authorAttr)
-            options = options with { Author = authorAttr.Author };
-        if (type.GetCustomAttribute<DescriptionAttribute>() is DescriptionAttribute descriptionAttr)
-            options = options with { Description = descriptionAttr.Description };
-        if (type.GetCustomAttribute<VersionAttribute>() is VersionAttribute versionAttr)
-            options = options with { Version = versionAttr.Version };
-
-        return options;
-    }
 }

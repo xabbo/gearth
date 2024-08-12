@@ -2,15 +2,15 @@
 
 	<PropertyGroup Label="Project">
 		<TargetFramework>net8.0</TargetFramework>
-		<RootNamespace>Xabbo</RootNamespace>
+		<RootNamespace>Xabbo.GEarth</RootNamespace>
 		<Nullable>enable</Nullable>
 		<DebugType>embedded</DebugType>
-    <XabboCommonDir Condition="$(XabboCommonDir) == ''">..\..\lib\Xabbo.Common\</XabboCommonDir>
+		<XabboCommonDir Condition="$(XabboCommonDir) == ''">..\..\lib\Xabbo.Common\</XabboCommonDir>
 	</PropertyGroup>
 
-  <ItemGroup Label="GitVersion">
-    <PackageReference Include="GitVersion.MsBuild" Version="5.12.0" PrivateAssets="all" />
-  </ItemGroup>
+	<ItemGroup Label="GitVersion">
+		<PackageReference Include="GitVersion.MsBuild" Version="5.12.0" PrivateAssets="all" />
+	</ItemGroup>
 
 	<PropertyGroup Label="Package">
 		<LocalPackageSource>%USERPROFILE%\.nuget\local</LocalPackageSource>
@@ -41,7 +41,7 @@
 		<PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="6.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="6.0.0" />
 		<PackageReference Include="System.IO.Pipelines" Version="6.0.3" />
-    <ProjectReference Include="$(XabboCommonDir)src\Xabbo.Common\Xabbo.Common.csproj" />
+		<ProjectReference Include="$(XabboCommonDir)src\Xabbo.Common\Xabbo.Common.csproj" />
 	</ItemGroup>
 
 </Project>
