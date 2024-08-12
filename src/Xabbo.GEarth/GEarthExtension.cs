@@ -515,15 +515,15 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
 
     private void HandleConnectionStart(IReadOnlyPacket packet)
     {
-        var (host, port, clientVersion, clientIdentifier, clientType)
+        var (host, port, clientVersion, clientIdentifier, clientTypeStr)
             = packet.Read<string, int, string, string, string>();
 
-        Clients client = clientType switch
+        ClientType clientType = clientTypeStr switch
         {
-            "UNITY" => Clients.Unity,
-            "FLASH" => Clients.Flash,
-            "SHOCKWAVE" => Clients.Shockwave,
-            _ => Clients.None,
+            "UNITY" => ClientType.Unity,
+            "FLASH" => ClientType.Flash,
+            "SHOCKWAVE" => ClientType.Shockwave,
+            _ => ClientType.None,
         };
 
         Hotel hotel = Hotel.FromGameHost(host);
@@ -535,7 +535,7 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
             var (id, _, name, _, isOutgoing, _)
                 = packet.Read<int, string, string, string, bool, string>();
 
-            messages.Add(new(client, isOutgoing ? Direction.Out : Direction.In, (short)id, name));
+            messages.Add(new(clientType, isOutgoing ? Direction.Out : Direction.In, (short)id, name));
         }
 
         Messages.LoadMessages(messages);
@@ -543,7 +543,7 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         if (this is IMessageHandler handler)
             handler.Attach(this);
 
-        Session = new(hotel, new Client(client, clientIdentifier, clientVersion));
+        Session = new(hotel, new Client(clientType, clientIdentifier, clientVersion));
         IsConnected = true;
 
         OnConnected(new GameConnectedArgs
