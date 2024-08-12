@@ -151,18 +151,11 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         private set => Set(ref _isConnected, value);
     }
 
-    private ClientInfo _client = ClientInfo.None;
-    public ClientInfo Client
+    private Session _session = Session.None;
+    public Session Session
     {
-        get => _client;
-        private set => Set(ref _client, value);
-    }
-
-    private Hotel _hotel = Hotel.Unknown;
-    public Hotel Hotel
-    {
-        get => _hotel;
-        private set => Set(ref _hotel, value);
+        get => _session;
+        private set => Set(ref _session, value);
     }
 
     public void Send(IReadOnlyPacket packet) => ForwardPacket(packet);
@@ -255,7 +248,7 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
 
             Dispatcher.Reset();
             Port = 0;
-            Client = ClientInfo.None;
+            Session = Session.None;
 
             if (IsConnected)
             {
@@ -469,7 +462,7 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         ReadOnlySpan<byte> packetSpan = data[(tabs[2] + 2)..];
         short headerValue = BinaryPrimitives.ReadInt16BigEndian(packetSpan[4..6]);
 
-        Header header = new(Client.Type, direction, headerValue);
+        Header header = new(Session.Client.Type, direction, headerValue);
 
         return new Intercept(this, new Packet(header, packetSpan[6..])) { Sequence = sequence };
     }
@@ -525,12 +518,12 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         var (host, port, clientVersion, clientIdentifier, clientType)
             = packet.Read<string, int, string, string, string>();
 
-        Client client = clientType switch
+        Clients client = clientType switch
         {
-            "UNITY" => Xabbo.Client.Unity,
-            "FLASH" => Xabbo.Client.Flash,
-            "SHOCKWAVE" => Xabbo.Client.Shockwave,
-            _ => Xabbo.Client.None,
+            "UNITY" => Clients.Unity,
+            "FLASH" => Clients.Flash,
+            "SHOCKWAVE" => Clients.Shockwave,
+            _ => Clients.None,
         };
 
         Hotel hotel = Hotel.FromGameHost(host);
@@ -550,16 +543,15 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         if (this is IMessageHandler handler)
             handler.Attach(this);
 
-        Client = new(client, clientIdentifier, clientVersion);
-        Hotel = hotel;
+        Session = new(hotel, new Client(client, clientIdentifier, clientVersion));
         IsConnected = true;
 
         OnConnected(new GameConnectedArgs
         {
             Host = host,
             Port = port,
-            Client = Client,
-            Messages = messages
+            Session = Session,
+            Messages = messages,
         });
     }
 
@@ -573,8 +565,7 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         }
         finally
         {
-            Hotel = Hotel.Unknown;
-            Client = ClientInfo.None;
+            Session = Session.None;
         }
     }
 
