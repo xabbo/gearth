@@ -28,7 +28,7 @@ public sealed record GEarthOptions
     /// <summary>
     /// Creates and returns a new default <see cref="GEarthOptions"/> instance with the specified command line arguments applied.
     /// </summary>
-    public static GEarthOptions FromArgs(IList<string> args) => Default.WithArguments(args);
+    public static GEarthOptions FromArgs(ReadOnlySpan<string> args) => Default.WithArguments(args);
 
     /// <summary>
     /// The title of the extension.
@@ -122,32 +122,32 @@ public sealed record GEarthOptions
     /// <summary>
     /// Creates a new <see cref="GEarthOptions"/> with the specified arguments applied.
     /// </summary>
-    public GEarthOptions WithArguments(IList<string> args)
+    public GEarthOptions WithArguments(ReadOnlySpan<string> args)
     {
         int port = Port;
         string cookie = Cookie;
         string file = FileName;
 
-        for (int i = 0; i < args.Count; i++)
+        for (int i = 0; i < args.Length; i++)
         {
             string arg = args[i];
             switch (arg)
             {
                 case "-c":
                 case "--cookie":
-                    if (++i >= args.Count)
+                    if (++i >= args.Length)
                         throw new ArgumentException($"A value must be specified after {arg}.");
                     cookie = args[i];
                     break;
                 case "-f":
                 case "--filename":
-                    if (++i >= args.Count)
+                    if (++i >= args.Length)
                         throw new ArgumentException($"A value must be specified after {arg}.");
                     file = args[i];
                     break;
                 case "-p":
                 case "--port":
-                    if (++i >= args.Count)
+                    if (++i >= args.Length)
                         throw new ArgumentException($"A value must be specified after {arg}.");
                     string portString = args[i];
                     if (!int.TryParse(portString, out port) || port <= 0 || port > ushort.MaxValue)
