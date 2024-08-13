@@ -1,23 +1,24 @@
-﻿using Xabbo.Extension;
+﻿using System.Runtime.CompilerServices;
+
+using Xabbo.Extension;
 using Xabbo.Messages;
 
 namespace Xabbo.GEarth.Example;
 
-[Title("Example Extension")]
-[Description("A Xabbo.GEarth example extension")]
-[Author("b7")]
-class ExampleExtension : GEarthExtension
+// TODO:
+// [Title("Example Extension")]
+// [Description("A Xabbo.GEarth example extension")]
+// [Author("b7")]
+class ExampleExtension(ReadOnlySpan<string> args)
+    : GEarthExtension(opts.WithArguments(args))
 {
-    public ExampleExtension(GEarthOptions options) : base(options) { }
+    private static readonly GEarthOptions opts = new() {
+        Title = "xabbo/gearth",
+        Description = "An example extension for xabbo/gearth",
+        Author = "b7",
+    };
 
-    protected override void OnInterceptorConnected()
-    {
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"> Connected to G-Earth on port {Port}.\n");
-        Console.ResetColor();
-    }
-
-    protected override void OnInitialized(ExtensionInitializedEventArgs e)
+    protected override void OnInitialized(InitializedArgs e)
     {
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine($"> Extension initialized by G-Earth. (game connected = {e.IsGameConnected})\n");
@@ -31,18 +32,24 @@ class ExampleExtension : GEarthExtension
         Console.ResetColor();
     }
 
-    protected override void OnConnected(GameConnectedEventArgs e)
+    protected override void OnConnected(GameConnectedArgs e)
     {
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine("> Game connection established.\n");
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine($"        Client type: {e.ClientType}");
-        Console.WriteLine($"  Client identifier: {e.ClientIdentifier}");
-        Console.WriteLine($"     Client version: {e.ClientVersion}");
+        Console.WriteLine($"        Client type: {e.Session.Client.Type}");
+        Console.WriteLine($"  Client identifier: {e.Session.Client.Identifier}");
+        Console.WriteLine($"     Client version: {e.Session.Client.Version}");
+        Console.WriteLine($"              Hotel: {e.Session.Hotel.Name}");
         Console.WriteLine($"        Host / port: {e.Host}:{e.Port}");
         Console.WriteLine($"      Message count: {e.Messages.Count}");
         Console.WriteLine();
         Console.ResetColor();
+
+        // Register intercepts here
+        this.Intercept(Out.MoveAvatar, OnMove);
+        this.Intercept([Out.Chat, Out.Shout, Out.Whisper], HandleOutgoingChat);
+        this.Intercept([In.Chat, In.Shout, In.Whisper], HandleIncomingChat);
     }
 
     protected override void OnDisconnected()
@@ -53,43 +60,56 @@ class ExampleExtension : GEarthExtension
     }
 
     // Sending packets
-    [InterceptOut(nameof(Outgoing.Move))]
-    protected void OnMove(InterceptArgs e)
+    // TODO: source generation for intercept attributes.
+    // [InterceptOut("Move")]
+    protected void OnMove(Intercept e)
     {
         // Read x, y integers separately
-        // int x = e.Packet.ReadInt();
-        // int y = e.Packet.ReadInt();
+        // int x = e.Packet.Read<int>();
+        // int y = e.Packet.Read<int>();
         // or:
         // Read a tuple from the packet and deconstruct it
-        var (x, y) = e.Packet.Read<int, int>();
+        var (x, y) = Session.Client.Type switch {
+            ClientType.Shockwave => e.Packet.Read<short, short>(),
+            _ => e.Packet.Read<int, int>(),
+        };
 
-        // Sending incoming packets to client
-        Send(In.Whisper, -1, $"moving to {x}, {y}", 0, 0, 0, 0);
+        // Sending incoming chat packet to client
+        this.Send(In.Chat, 0, $"moving to {x}, {y}", 0, 0, 0, 0);
     }
 
     // Modifying packets
-    // Change incoming shout messages to uppercase
-    [InterceptIn(nameof(Incoming.Shout))]
-    protected void OnUserShout(InterceptArgs e)
+    // Changes incoming shout messages to uppercase,
+    // and whisper messages to lowercase
+    // [InterceptIn("Chat", "Shout", "Whisper")]
+    protected void HandleIncomingChat(Intercept e)
     {
-        // Read a string from byte index 4 in the packet
-        // (skipping over user index int)
-        string message = e.Packet.ReadString(4);
-        // Replace a string from byte index 4 in the packet
-        e.Packet.ReplaceString(message.ToUpper(), 4);
+        // Skip over the entity index
+        e.Packet.Read<int>();
+
+        if (e.Is(In.Whisper))
+        {
+            // Modify a string from the current position in the packet
+            e.Packet.Modify<string>(msg => msg.ToLower());
+        }
+        else if (e.Is(In.Shout))
+        {
+            e.Packet.Modify<string>(msg => msg.ToUpper());
+        }
     }
 
     // Intercept outgoing Chat, Shout and Whisper packets
-    [InterceptOut("Chat", "Shout", "Whisper")]
-    protected async void OnChat(InterceptArgs e)
+    // [InterceptOut("Chat", "Shout", "Whisper")]
+    protected void HandleOutgoingChat(Intercept e)
     {
         try
         {
             // Read the message from the packet
-            string message = e.Packet.ReadString();
+            string message = e.Packet.Read<string>();
 
             // Remove the recipient from the message if this is a whisper
-            if (e.Packet.Header == Out.Whisper)
+            // TODO: Messages.Is(e.Packet.Header, Out.Whisper)
+            if (e.Packet.Header == Messages.Resolve(Out.Whisper))
             {
                 int index = message.IndexOf(' ');
                 if (index > 0)
@@ -101,7 +121,7 @@ class ExampleExtension : GEarthExtension
             {
                 // Block the message if it starts with a forward slash and process it as a command
                 e.Block();
-                await HandleCommand(message[1..]);
+                HandleCommand(message[1..]);
             }
         }
         catch (Exception ex)
@@ -111,7 +131,7 @@ class ExampleExtension : GEarthExtension
         }
     }
 
-    private async Task HandleCommand(string command)
+    private void HandleCommand(string command)
     {
         command = command.ToLower();
 
@@ -119,23 +139,67 @@ class ExampleExtension : GEarthExtension
         {
             case "wave":
                 {
-                    // Access a header by its Flash message name "AvatarExpression".
-                    // Maps to the Outgoing property Out.Expression, which is the Unity message name.
-                    // This mapping is defined in the messages.ini file: Expression = 94; AvatarExpression
-                    // This file can be included with the extension, or it will be downloaded from the
-                    // b7c/Xabbo.Messages github repo by the message manager upon initialization if it does not exist.
-                    await SendAsync(Out["AvatarExpression"], 1);
+                    if (Session.Client.Type == ClientType.Shockwave)
+                    {
+                        // Shockwave has a packet just for wave
+                        this.Send(ShockwaveOut.Wave);
+                    }
+                    else
+                    {
+                        // Modern clients have avatar expression
+                        // with an action type (1 = wave)
+                        this.Send(Out.AvatarExpression, 1);
+                    }
                 }
                 break;
             case "credits":
                 {
                     // Send a request and receive a response asynchronously
-                    await SendAsync(In.Chat, -1, "Requesting wallet balance...", 0, 0, 0, 0);
-                    await SendAsync(Out.GetCredits);
-                    using var p = await ReceiveAsync(In.WalletBalance, timeout: 10000, true);
-                    await SendAsync(In.Chat, -1, $"You have {p.ReadString()} credits.", 0, 0, 0, 0);
+                    Task.Run(async () => {
+                        try
+                        {
+                            this.Send(In.Chat, 0, "Requesting wallet balance...", 0, 0, 0, 0);
+                            this.Send(Out.GetCreditsInfo);
+                            using var p = await this.ReceiveAsync(In.CreditBalance, timeout: 10000, true);
+                            this.Send(In.Chat, 0, $"You have {p.Read<string>()} credits.", 0, 0, 0, 0);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex);
+                        }
+                    });
                 }
                 break;
         }
     }
+}
+
+// TODO: create Xabbo.Messages package that exports all client identifiers
+internal static class In
+{
+    private static Identifier _([CallerMemberName] string? name = null)
+        => new(ClientType.Flash, Direction.In, name ?? "");
+    public static readonly Identifier CreditBalance = _();
+    public static readonly Identifier Chat = _();
+    public static readonly Identifier Shout = _();
+    public static readonly Identifier Whisper = _();
+}
+
+internal static class Out
+{
+    private static Identifier _([CallerMemberName] string? name = null)
+        => new(ClientType.Flash, Direction.Out, name ?? "");
+    public static readonly Identifier MoveAvatar = _();
+    public static readonly Identifier AvatarExpression = _();
+    public static readonly Identifier Chat = _();
+    public static readonly Identifier Shout = _();
+    public static readonly Identifier Whisper = _();
+    public static readonly Identifier GetCreditsInfo = _();
+}
+
+internal static class ShockwaveOut
+{
+    private static Identifier _([CallerMemberName] string? name = null)
+        => new(ClientType.Shockwave, Direction.Out, name ?? "");
+    public static readonly Identifier Wave = _();
 }
