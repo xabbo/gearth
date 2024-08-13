@@ -4,9 +4,9 @@ assembly-informational-format: '{FullSemVer}'
 mode: ContinuousDelivery
 branches:
   develop:
-    regex: ^develop$
-    tag: beta
+    regex: ^(develop|next)$
+    label: beta
   xabbo:
     regex: ^xabbo.*$
-    tag: beta
+    label: beta
     source-branches: ['develop']
