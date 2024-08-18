@@ -5,7 +5,7 @@
 		<RootNamespace>Xabbo.GEarth</RootNamespace>
 		<Nullable>enable</Nullable>
 		<DebugType>embedded</DebugType>
-		<XabboCommonDir Condition="$(XabboCommonDir) == ''">..\..\lib\Xabbo.Common\</XabboCommonDir>
+		<XabboCommonDir Condition="$(XabboCommonDir) == ''">../../lib/common/</XabboCommonDir>
 	</PropertyGroup>
 
 	<ItemGroup Label="GitVersion">

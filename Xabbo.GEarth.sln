@@ -7,9 +7,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.GEarth", "src\Xabbo.G
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Submodules", "Submodules", "{E8BF5185-9038-4A99-8EB1-9A3C2686D7AE}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.Common", "lib\Xabbo.Common\src\Xabbo.Common\Xabbo.Common.csproj", "{3AB6A399-E23E-49F8-9CAF-61EBBDF1747C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.Common", "lib\common\src\Xabbo.Common\Xabbo.Common.csproj", "{3AB6A399-E23E-49F8-9CAF-61EBBDF1747C}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.Common.SourceGeneration", "lib\Xabbo.Common\src\Xabbo.Common.SourceGeneration\Xabbo.Common.SourceGeneration.csproj", "{0BAB1434-1C49-44FE-927C-61493B8E8DEB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.Common.SourceGeneration", "lib\common\src\Xabbo.Common.SourceGeneration\Xabbo.Common.SourceGeneration.csproj", "{0BAB1434-1C49-44FE-927C-61493B8E8DEB}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.GEarth.Example", "src\Xabbo.GEarth.Example\Xabbo.GEarth.Example.csproj", "{5A58D901-2B2B-4157-B4AD-0690AB8270D5}"
 EndProject
