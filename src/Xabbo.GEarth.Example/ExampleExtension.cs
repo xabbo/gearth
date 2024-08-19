@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
+using Xabbo.Connection;
 using Xabbo.Extension;
 using Xabbo.Messages;
 

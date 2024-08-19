@@ -14,14 +14,14 @@ using System.Runtime.CompilerServices;
 
 using Xabbo.Messages;
 using Xabbo.Extension;
+using Xabbo.Connection;
 
 namespace Xabbo.GEarth;
 
 /// <summary>
 /// A G-Earth extension protocol implementation.
 /// </summary>
-public class GEarthExtension(IMessageManager messages, GEarthOptions options)
-    : IRemoteExtension, INotifyPropertyChanged
+public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
 {
     const byte Tab = 0x09;
 
@@ -130,10 +130,10 @@ public class GEarthExtension(IMessageManager messages, GEarthOptions options)
     /// <summary>
     /// Gets the options used by this extension.
     /// </summary>
-    public GEarthOptions Options { get; } = options;
+    public GEarthOptions Options { get; }
 
-    public IMessageManager Messages { get; } = messages;
-    public IMessageDispatcher Dispatcher { get; } = new MessageDispatcher(messages);
+    public IMessageManager Messages { get; }
+    public IMessageDispatcher Dispatcher { get; }
 
     private bool _isRunning;
     public bool IsRunning
@@ -165,12 +165,25 @@ public class GEarthExtension(IMessageManager messages, GEarthOptions options)
 
     /// <summary>
     /// Creates a new <see cref="GEarthExtension"/> with the specified <see cref="GEarthOptions"/>.
+    /// </summary>
+    /// <param name="messages">The message manager to use.</param>
+    /// <param name="options">The options to be used by this extension.</param>
+    public GEarthExtension(IMessageManager messages, GEarthOptions options)
+    {
+        Messages = messages;
+        Dispatcher = new MessageDispatcher(this);
+        Options = options;
+    }
+
+    /// <summary>
+    /// Creates a new <see cref="GEarthExtension"/> with the specified <see cref="GEarthOptions"/>.
     /// Uses a <see cref="MessageManager"/> which loads a file named <c>messages.ini</c>.
     /// </summary>
     /// <param name="options">The options to be used by this extension.</param>
     public GEarthExtension(GEarthOptions options)
         : this(new MessageManager("messages.ini"), options)
     { }
+
 
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
