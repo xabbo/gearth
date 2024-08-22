@@ -1,10 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Reflection;
-
-using Microsoft.Extensions.Configuration;
-
-using Xabbo.Extension;
 
 namespace Xabbo.GEarth;
 
@@ -21,19 +16,20 @@ public sealed record GEarthOptions
     /// <summary>
     /// Gets the default options with the entry assembly's name and version.
     /// </summary>
-    public static GEarthOptions Default => new GEarthOptions()
+    public static GEarthOptions Default => new GEarthOptions
+        {
+            Name = "<no name>",
+            Description = "<no description>",
+            Author = "<no author>",
+            Version = "0.1",
+        }
         .WithAssemblyName()
         .WithAssemblyVersion();
 
     /// <summary>
-    /// Creates and returns a new default <see cref="GEarthOptions"/> instance with the specified command line arguments applied.
+    /// The name of the extension.
     /// </summary>
-    public static GEarthOptions FromArgs(ReadOnlySpan<string> args) => Default.WithArguments(args);
-
-    /// <summary>
-    /// The title of the extension.
-    /// </summary>
-    public string Title { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
 
     /// <summary>
     /// The description of the extension.
@@ -51,7 +47,7 @@ public sealed record GEarthOptions
     public string Version { get; init; } = string.Empty;
 
     /// <summary>
-    /// Specifies whether to show the even (green play) button in G-Earth.
+    /// Specifies whether to show the event (green play) button in G-Earth.
     /// Defaults to <c>true</c>.
     /// </summary>
     public bool ShowEventButton { get; init; } = true;
@@ -69,34 +65,12 @@ public sealed record GEarthOptions
     public bool ShowDeleteButton { get; init; } = true;
 
     /// <summary>
-    /// The file path of the extension.
-    /// </summary>
-    public string FileName { get; init; } = string.Empty;
-
-    /// <summary>
-    /// The cookie to be used for authentication.
-    /// </summary>
-    public string Cookie { get; init; } = string.Empty;
-
-    /// <summary>
-    /// Specifies whether the extension is installed.
-    /// Returns <c>true</c> if <see cref="FileName"/> is a non-empty string.
-    /// </summary>
-    public bool IsInstalledExtension => !string.IsNullOrWhiteSpace(FileName);
-
-    /// <summary>
-    /// The port used to connect to G-Earth.
-    /// Defaults to 9092.
-    /// </summary>
-    public int Port { get; init; } = 9092;
-
-    /// <summary>
-    /// Creates a new <see cref="GEarthOptions"/> with the <see cref="Title"/>
+    /// Creates a new <see cref="GEarthOptions"/> with the <see cref="Name"/>
     /// changed to the name of the current assembly.
     /// </summary>
     public GEarthOptions WithAssemblyName() => this with
     {
-        Title = Assembly.GetEntryAssembly()?.GetName().Name ?? "unknown",
+        Name = Assembly.GetEntryAssembly()?.GetName().Name ?? "unknown",
     };
 
     /// <summary>
@@ -118,66 +92,4 @@ public sealed record GEarthOptions
         Version = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion ?? "unknown"
     };
-
-    /// <summary>
-    /// Creates a new <see cref="GEarthOptions"/> with the specified arguments applied.
-    /// </summary>
-    public GEarthOptions WithArguments(ReadOnlySpan<string> args)
-    {
-        int port = Port;
-        string cookie = Cookie;
-        string file = FileName;
-
-        for (int i = 0; i < args.Length; i++)
-        {
-            string arg = args[i];
-            switch (arg)
-            {
-                case "-c":
-                case "--cookie":
-                    if (++i >= args.Length)
-                        throw new ArgumentException($"A value must be specified after {arg}.");
-                    cookie = args[i];
-                    break;
-                case "-f":
-                case "--filename":
-                    if (++i >= args.Length)
-                        throw new ArgumentException($"A value must be specified after {arg}.");
-                    file = args[i];
-                    break;
-                case "-p":
-                case "--port":
-                    if (++i >= args.Length)
-                        throw new ArgumentException($"A value must be specified after {arg}.");
-                    string portString = args[i];
-                    if (!int.TryParse(portString, out port) || port <= 0 || port > ushort.MaxValue)
-                        throw new FormatException($"Invalid port specified: '{portString}'.");
-                    break;
-            }
-        }
-
-        return this with
-        {
-            Port = port,
-            Cookie = cookie,
-            FileName = file
-        };
-    }
-
-    /// <summary>
-    /// Creates a new <see cref="GEarthOptions"/> with the specified configuration applied.
-    /// </summary>
-    public GEarthOptions WithConfiguration(IConfiguration configuration)
-    {
-        int port = configuration.GetValue("Xabbo:Interceptor:Port", Port);
-        string cookie = configuration.GetValue("Xabbo:Interceptor:Cookie", Cookie);
-        string file = configuration.GetValue("Xabbo:Interceptor:File", FileName);
-
-        return this with
-        {
-            Port = port,
-            Cookie = cookie,
-            FileName = file
-        };
-    }
 }

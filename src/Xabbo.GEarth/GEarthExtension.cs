@@ -23,6 +23,7 @@ namespace Xabbo.GEarth;
 /// </summary>
 public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
 {
+    const int DefaultPort = 9092;
     const byte Tab = 0x09;
 
     private enum GIncoming : short
@@ -92,10 +93,12 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    private readonly SemaphoreSlim _runSemaphore = new(1, 1);
     private readonly SemaphoreSlim _sendSemaphore = new(1, 1);
 
     private TcpClient? _tcpClient;
     private NetworkStream? _ns;
+    private GEarthConnectOptions _currentConnectOpts;
 
     private CancellationTokenSource? _cancellation;
     private CancellationTokenSource _ctsDisconnect = new CancellationTokenSource();
@@ -172,6 +175,20 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
     {
         Messages = messages;
         Dispatcher = new MessageDispatcher(this);
+
+        if (this is IExtensionInfoInit init)
+        {
+            var info = init.Info;
+            if (info.Name is not null)
+                options = options with { Name = info.Name };
+            if (info.Description is not null)
+                options = options with { Description = info.Description };
+            if (info.Author is not null)
+                options = options with { Author = info.Author };
+            if (info.Version is not null)
+                options = options with { Version = info.Version };
+        }
+
         Options = options;
     }
 
@@ -184,20 +201,28 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         : this(new MessageManager("messages.ini"), options)
     { }
 
+    /// <summary>
+    /// Creates a new <see cref="GEarthExtension"/> with the default options.
+    /// </summary>
+    public GEarthExtension()
+        : this(GEarthOptions.Default)
+    { }
 
-    public async Task RunAsync(CancellationToken cancellationToken = default)
+    public Task RunAsync(CancellationToken cancellationToken) => RunAsync(default, cancellationToken);
+    public async Task RunAsync(GEarthConnectOptions connectOpts = default, CancellationToken cancellationToken = default)
     {
-        if (IsRunning)
-            throw new InvalidOperationException("The interceptor service is already running.");
-
-        _cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        IsRunning = true;
+        if (!_runSemaphore.Wait(0, cancellationToken))
+            throw new InvalidOperationException("The extension is already running.");
 
         try
         {
+            IsRunning = true;
+
+            _currentConnectOpts = connectOpts.WithArgs(Environment.GetCommandLineArgs().AsSpan()[1..]);
+            _cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
             await Messages.InitializeAsync(_cancellation.Token).ConfigureAwait(false);
-            await HandleInterceptorAsync(_cancellation.Token);
+            await HandleInterceptorAsync(_currentConnectOpts, _cancellation.Token);
         }
         finally
         {
@@ -211,6 +236,8 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
             _tcpClient?.Close();
             _tcpClient = null;
             _ns = null;
+
+            _runSemaphore.Release();
         }
     }
 
@@ -251,11 +278,11 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         SendInternal(p);
     }
 
-    private async Task HandleInterceptorAsync(CancellationToken cancellationToken)
+    private async Task HandleInterceptorAsync(GEarthConnectOptions connectOpts, CancellationToken cancellationToken)
     {
         try
         {
-            _tcpClient = await ConnectAsync(cancellationToken);
+            _tcpClient = await ConnectAsync(connectOpts, cancellationToken);
 
             Pipe pipe = new();
             await Task.WhenAll(
@@ -281,18 +308,21 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         }
     }
 
-    private async Task<TcpClient> ConnectAsync(CancellationToken cancellationToken)
+    private async Task<TcpClient> ConnectAsync(GEarthConnectOptions connectInfo, CancellationToken cancellationToken)
     {
+        string host = connectInfo.Host ?? "127.0.0.1";
+        int port = connectInfo.Port ?? DefaultPort;
+
         try
         {
             TcpClient client = new();
-            await client.ConnectAsync(IPAddress.Loopback, Options.Port, cancellationToken);
-            Port = Options.Port;
+            await client.ConnectAsync(host, port, cancellationToken);
+            Port = port;
             return client;
         }
         catch (SocketException)
         {
-            throw new Exception($"Failed to connect to G-Earth on port {Options.Port}.");
+            throw new Exception($"Failed to connect to G-Earth on {host}:{port}.");
         }
     }
 
@@ -414,11 +444,12 @@ public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         using Packet p = new((Direction.Out, (short)GOutgoing.Info), capacity: 256);
 
         p.Write(
-            Options.Title, Options.Author,
+            Options.Name, Options.Author,
             Options.Version, Options.Description,
             Options.ShowEventButton,
-            Options.IsInstalledExtension,
-            Options.FileName, Options.Cookie,
+            !string.IsNullOrWhiteSpace(_currentConnectOpts.FileName),
+            _currentConnectOpts.FileName ?? "",
+            _currentConnectOpts.Cookie ?? "",
             Options.ShowLeaveButton, Options.ShowDeleteButton
         );
 
