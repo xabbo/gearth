@@ -11,8 +11,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.Common", "lib\common\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.Common.Internal.Generators", "lib\common\src\Xabbo.Common.Internal.Generators\Xabbo.Common.Internal.Generators.csproj", "{0BAB1434-1C49-44FE-927C-61493B8E8DEB}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.GEarth.Example", "src\Xabbo.GEarth.Example\Xabbo.GEarth.Example.csproj", "{5A58D901-2B2B-4157-B4AD-0690AB8270D5}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -31,10 +29,6 @@ Global
 		{0BAB1434-1C49-44FE-927C-61493B8E8DEB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0BAB1434-1C49-44FE-927C-61493B8E8DEB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0BAB1434-1C49-44FE-927C-61493B8E8DEB}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5A58D901-2B2B-4157-B4AD-0690AB8270D5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5A58D901-2B2B-4157-B4AD-0690AB8270D5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5A58D901-2B2B-4157-B4AD-0690AB8270D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5A58D901-2B2B-4157-B4AD-0690AB8270D5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
