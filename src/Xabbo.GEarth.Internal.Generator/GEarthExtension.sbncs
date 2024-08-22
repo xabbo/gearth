@@ -1,0 +1,50 @@
+﻿using System.ComponentModel;
+using System.Threading.Tasks;
+
+using Xabbo.Messages;
+using Xabbo.Connection;
+
+namespace Xabbo.GEarth;
+
+{{~
+    func gtypes; ret array.join $[0] ', ' @(do(x); ret 'T'+x; end); end
+    func gargs; ret array.join $[0] ', ' @(do(x); ret 'T'+x+' arg'+x; end); end
+-}}
+
+#pragma warning disable CS1591
+[EditorBrowsable(EditorBrowsableState.Never)]
+public partial class GEarthExtension
+#pragma warning restore CS1591
+{
+    {{~ for n in 0..max_params ~}}
+    /// <summary>
+    /// Sends a packet with the specified identifier and values to the client or server, depending on the identifier's direction.
+    /// </summary>
+    public void Send{{if n > 0}}<{{gtypes 1..n}}>{{end}}(Identifier identifier{{if n > 0}},
+        {{gargs 1..n}}{{end}})
+    {
+        using Packet packet = new Packet(Messages.Resolve(identifier));
+        {{~ if n > 0 ~}}
+        {{~ for i in 1..n ~}}
+        packet.Write<T{{i}}>(arg{{i}});
+        {{~ end ~}}
+        {{~ end ~}}
+        Send(packet);
+    }
+
+    /// <summary>
+    /// Sends a packet with the specified header and values to the client or server, depending on the header's direction.
+    /// </summary>
+    public void Send{{if n > 0}}<{{gtypes 1..n}}>{{end}}(Header header{{if n > 0}},
+        {{gargs 1..n}}{{end}})
+    {
+        using Packet packet = new Packet(header);
+        {{~ if n > 0 ~}}
+        {{~ for i in 1..n ~}}
+        packet.Write<T{{i}}>(arg{{i}});
+        {{~ end ~}}
+        {{~ end ~}}
+        Send(packet);
+    }
+    {{~ end ~}}
+}

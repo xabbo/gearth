@@ -21,7 +21,7 @@ namespace Xabbo.GEarth;
 /// <summary>
 /// A G-Earth extension protocol implementation.
 /// </summary>
-public class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
+public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
 {
     const int DefaultPort = 9092;
     const byte Tab = 0x09;
