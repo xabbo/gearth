@@ -3,7 +3,6 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.IO;
 using System.IO.Pipelines;
-using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -12,9 +11,9 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
+using Xabbo;
 using Xabbo.Messages;
 using Xabbo.Extension;
-using Xabbo.Connection;
 
 namespace Xabbo.GEarth;
 
@@ -249,7 +248,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         _cancellation = null;
     }
 
-    public void Send(IReadOnlyPacket packet)
+    public void Send(IPacket packet)
     {
         if (packet.Header.Direction != Direction.In && packet.Header.Direction != Direction.Out)
             throw new InvalidOperationException("Invalid packet direction.");
@@ -264,7 +263,8 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         {
             // length of (header + data)
             p.Write(2 + packet.Length);
-            B64.Encode(p.Allocate(2), packet.Header.Value);
+            B64.Encode(p.Buffer.Alloc(p.Position, 2), packet.Header.Value);
+            p.Position += 2;
         }
         else
         {
@@ -422,7 +422,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         await reader.CompleteAsync(error);
     }
 
-    private void HandlePacket(IReadOnlyPacket packet)
+    private void HandlePacket(Packet packet)
     {
         switch ((GIncoming)packet.Header.Value)
         {
@@ -437,9 +437,9 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         };
     }
 
-    private void HandleClick(IReadOnlyPacket _) => OnActivated();
+    private void HandleClick(Packet _) => OnActivated();
 
-    private void HandleInfoRequest(IReadOnlyPacket _)
+    private void HandleInfoRequest(Packet _)
     {
         using Packet p = new((Direction.Out, (short)GOutgoing.Info), capacity: 256);
 
@@ -472,9 +472,9 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
      *   1 - Wedgie Incoming (Shockwave)
      *   2 - Wedgie Outgoing (Shockwave)
      */
-    private Intercept ParseInterceptArgs(IReadOnlyPacket packet)
+    private Intercept ParseInterceptArgs(Packet packet)
     {
-        ReadOnlySpan<byte> packetBuffer = packet.Buffer;
+        ReadOnlySpan<byte> packetBuffer = packet.Buffer.Span;
 
         int length = BinaryPrimitives.ReadInt32BigEndian(packetBuffer[0..4]);
         ReadOnlySpan<byte> data = packetBuffer[4..(4+length)];
@@ -522,14 +522,14 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         return new Intercept(this, new Packet(header, packetSpan[dataOffset..])) { Sequence = sequence };
     }
 
-    private void HandlePacketIntercept(IReadOnlyPacket packet)
+    private void HandlePacketIntercept(Packet packet)
     {
         using Intercept intercept = ParseInterceptArgs(packet);
-        packet = intercept.Packet;
 
-        if (packet is null)
+        IPacket interceptedPacket = intercept.Packet ??
             throw new InvalidOperationException("Packet was set to null during intercept.");
-        if (packet.Header.Client != Session.Client.Type)
+
+        if (interceptedPacket.Header.Client != Session.Client.Type)
             throw new InvalidOperationException($"Invalid client {packet.Header.Client} on header, must be same as session: {Session.Client.Type}.");
 
         OnIntercepted(intercept);
@@ -574,9 +574,9 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         SendInternal(p);
     }
 
-    private static void HandleFlagsCheck(IReadOnlyPacket _) { }
+    private static void HandleFlagsCheck(Packet _) { }
 
-    private void HandleConnectionStart(IReadOnlyPacket packet)
+    private void HandleConnectionStart(Packet packet)
     {
         var (host, port, clientVersion, clientIdentifier, clientTypeStr)
             = packet.Read<string, int, string, string, string>();
@@ -617,7 +617,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
             handler.Attach(this);
     }
 
-    private void HandleConnectionEnd(IReadOnlyPacket _)
+    private void HandleConnectionEnd(Packet _)
     {
         try
         {
@@ -631,9 +631,9 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         }
     }
 
-    private void HandleInit(IReadOnlyPacket packet)
+    private void HandleInit(Packet packet)
     {
-        bool? isGameConnected = packet.Available > 0 ? packet.Read<bool>() : null;
+        bool? isGameConnected = (packet.Position < packet.Length) ? packet.Read<bool>() : null;
 
         Initialized?.Invoke(this, new InitializedArgs(isGameConnected));
     }
@@ -641,7 +641,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
     /// <summary>
     /// Sends the specified packet to G-Earth.
     /// </summary>
-    protected void SendInternal(IReadOnlyPacket packet)
+    protected void SendInternal(Packet packet)
     {
         NetworkStream? ns = _ns;
         if (ns is null) return;
@@ -653,7 +653,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
             BinaryPrimitives.WriteInt32BigEndian(head[0..4], 2 + packet.Length);
             BinaryPrimitives.WriteInt16BigEndian(head[4..6], packet.Header.Value);
             ns.Write(head);
-            ns.Write(packet.Buffer);
+            ns.Write(packet.Buffer.Span);
         }
         finally { _sendSemaphore.Release(); }
     }
