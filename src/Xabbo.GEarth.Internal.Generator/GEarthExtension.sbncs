@@ -20,7 +20,7 @@ public partial class GEarthExtension
     /// <summary>
     /// Sends a packet with the specified identifier and values to the client or server, depending on the identifier's direction.
     /// </summary>
-    public void Send{{if n > 0}}<{{gtypes 1..n}}>{{end}}(Identifier identifier{{if n > 0}},
+    protected void Send{{if n > 0}}<{{gtypes 1..n}}>{{end}}(Identifier identifier{{if n > 0}},
         {{gargs 1..n}}{{end}})
     {
         using Packet packet = new Packet(Messages.Resolve(identifier));
@@ -35,7 +35,7 @@ public partial class GEarthExtension
     /// <summary>
     /// Sends a packet with the specified header and values to the client or server, depending on the header's direction.
     /// </summary>
-    public void Send{{if n > 0}}<{{gtypes 1..n}}>{{end}}(Header header{{if n > 0}},
+    protected void Send{{if n > 0}}<{{gtypes 1..n}}>{{end}}(Header header{{if n > 0}},
         {{gargs 1..n}}{{end}})
     {
         using Packet packet = new Packet(header);
