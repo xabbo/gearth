@@ -644,7 +644,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
     {
         bool? isGameConnected = (packet.Position < packet.Length) ? packet.Read<bool>() : null;
 
-        Initialized?.Invoke(new InitializedArgs(isGameConnected));
+        OnInitialized(new InitializedArgs(isGameConnected));
     }
 
     /// <summary>
