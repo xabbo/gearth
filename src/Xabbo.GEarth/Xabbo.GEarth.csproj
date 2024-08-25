@@ -5,8 +5,6 @@
     <RootNamespace>Xabbo.GEarth</RootNamespace>
     <Nullable>enable</Nullable>
     <DebugType>embedded</DebugType>
-    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-    <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
@@ -25,15 +23,6 @@
 
   <ItemGroup Label="Include package icon">
     <None Include="..\..\res\xabbo-skull-128.png" Pack="true" PackagePath="icon.png" />
-  </ItemGroup>
-
-  <Target Name="CleanSourceGeneratedFiles" BeforeTargets="Clean" DependsOnTargets="$(BeforeBuildDependsOn)">
-    <RemoveDir Directories="Generated" />
-  </Target>
-
-  <ItemGroup Label="Exclude generated source files">
-    <Compile Remove="$(CompilerGeneratedFilesOutputPath)/**" />
-    <Content Include="$(CompilerGeneratedFilesOutputPath)/**" />
   </ItemGroup>
 
   <PropertyGroup Label="Rename paths">
