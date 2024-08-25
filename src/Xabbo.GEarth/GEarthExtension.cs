@@ -14,6 +14,8 @@ using System.Runtime.CompilerServices;
 using Xabbo;
 using Xabbo.Messages;
 using Xabbo.Extension;
+using System.Numerics;
+using System.IO.Hashing;
 
 namespace Xabbo.GEarth;
 
@@ -104,29 +106,29 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
     public CancellationToken DisconnectToken => _ctsDisconnect.Token;
 
     #region - Events -
-    public event EventHandler<InitializedArgs>? Initialized;
-    protected virtual void OnInitialized(InitializedArgs e) => Initialized?.Invoke(this, e);
+    public event Action<InitializedArgs>? Initialized;
+    protected virtual void OnInitialized(InitializedArgs e) => Initialized?.Invoke(e);
 
-    public event EventHandler<GameConnectedArgs>? Connected;
-    protected virtual void OnConnected(GameConnectedArgs e) => Connected?.Invoke(this, e);
+    public event Action<GameConnectedArgs>? Connected;
+    protected virtual void OnConnected(GameConnectedArgs e) => Connected?.Invoke(e);
 
-    public event EventHandler? Disconnected;
+    public event Action? Disconnected;
     protected virtual void OnDisconnected()
     {
         _ctsDisconnect.Cancel();
         _ctsDisconnect = new CancellationTokenSource();
 
-        Disconnected?.Invoke(this, EventArgs.Empty);
+        Disconnected?.Invoke();
     }
 
-    public event EventHandler<Intercept>? Intercepted;
-    protected virtual void OnIntercepted(Intercept e) => Intercepted?.Invoke(this, e);
+    public event Action<Intercept>? Intercepted;
+    protected virtual void OnIntercepted(Intercept e) => Intercepted?.Invoke(e);
 
     /// <summary>
     /// Invoked when the extension is selected in G-Earth's user interface.
     /// </summary>
-    public event EventHandler? Activated;
-    protected virtual void OnActivated() => Activated?.Invoke(this, EventArgs.Empty);
+    public event Action? Activated;
+    protected virtual void OnActivated() => Activated?.Invoke();
     #endregion
 
     /// <summary>
@@ -263,7 +265,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         {
             // length of (header + data)
             p.Write(2 + packet.Length);
-            B64.Encode(p.Buffer.Alloc(p.Position, 2), packet.Header.Value);
+            B64.Encode(p.Buffer.Allocate(p.Position, 2), packet.Header.Value);
             p.Position += 2;
         }
         else
@@ -526,14 +528,21 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
     {
         using Intercept intercept = ParseInterceptArgs(packet);
 
-        IPacket interceptedPacket = intercept.Packet ??
-            throw new InvalidOperationException("Packet was set to null during intercept.");
+        Header unmodifiedHeader = packet.Header;
+        int unmodifiedLength = packet.Length;
 
-        if (interceptedPacket.Header.Client != Session.Client.Type)
-            throw new InvalidOperationException($"Invalid client {packet.Header.Client} on header, must be same as session: {Session.Client.Type}.");
+        uint checksum = Crc32.HashToUInt32(intercept.Packet.Buffer.Span);
 
         OnIntercepted(intercept);
         Dispatcher.Dispatch(intercept);
+
+        if (intercept.Packet.Header.Client != Session.Client.Type)
+            throw new InvalidOperationException($"Invalid client {packet.Header.Client} on header, must be same as session: {Session.Client.Type}.");
+
+        bool isModified =
+            intercept.Packet.Header != unmodifiedHeader ||
+            intercept.Packet.Length != unmodifiedLength ||
+            checksum != Crc32.HashToUInt32(intercept.Packet.Buffer.Span);
 
         string sequenceStr = intercept.Sequence.ToString();
         int sequenceBytes = Encoding.ASCII.GetByteCount(sequenceStr);
@@ -555,7 +564,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         p.Write(intercept.Direction == Direction.In ? "TOCLIENT"u8 : "TOSERVER"u8);
         p.Write(Tab);
 
-        p.Write((byte)(intercept.IsModified ? '1' : '0'));
+        p.Write((byte)(isModified ? '1' : '0'));
         if (Session.Client.Type == ClientType.Shockwave)
         {
             B64.Encode(p.Allocate(2), intercept.Packet.Header.Value);
@@ -566,7 +575,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
             p.Write(intercept.Packet.Header.Value);
         }
 
-        p.Write(intercept.Packet.Buffer);
+        p.Write(intercept.Packet.Buffer.Span);
         p.Write(p.Length - 4, 0);
 
         p.Write(ToPacketFormat(packet.Header));
@@ -635,7 +644,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
     {
         bool? isGameConnected = (packet.Position < packet.Length) ? packet.Read<bool>() : null;
 
-        Initialized?.Invoke(this, new InitializedArgs(isGameConnected));
+        Initialized?.Invoke(new InitializedArgs(isGameConnected));
     }
 
     /// <summary>
