@@ -16,6 +16,7 @@ using Xabbo.Messages;
 using Xabbo.Extension;
 using System.Numerics;
 using System.IO.Hashing;
+using Xabbo.Interceptor.Tasks;
 
 namespace Xabbo.GEarth;
 
@@ -278,6 +279,22 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         p.Write(packet.Buffer.Span);
         p.Write(ToPacketFormat(packet.Header));
         SendInternal(p);
+    }
+
+    protected Task<IPacket> ReceiveAsync(ReadOnlySpan<Header> headers,
+        int timeout = -1, bool block = false, Func<IPacket, bool>? shouldCapture = null,
+        CancellationToken cancellationToken = default)
+    {
+        return InterceptorExtensions.ReceiveAsync(this,
+            headers, timeout, block, shouldCapture, cancellationToken);
+    }
+
+    protected Task<IPacket> ReceiveAsync(ReadOnlySpan<Identifier> identifiers,
+        int timeout = -1, bool block = false, Func<IPacket, bool>? shouldCapture = null,
+        CancellationToken cancellationToken = default)
+    {
+        return InterceptorExtensions.ReceiveAsync(this,
+            identifiers, timeout, block, shouldCapture, cancellationToken);
     }
 
     private async Task HandleInterceptorAsync(GEarthConnectOptions connectOpts, CancellationToken cancellationToken)
