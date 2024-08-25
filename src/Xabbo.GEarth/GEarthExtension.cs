@@ -2,6 +2,7 @@
 using System.Buffers;
 using System.Buffers.Binary;
 using System.IO;
+using System.IO.Hashing;
 using System.IO.Pipelines;
 using System.Net.Sockets;
 using System.Text;
@@ -11,12 +12,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-using Xabbo;
 using Xabbo.Messages;
 using Xabbo.Extension;
-using System.Numerics;
-using System.IO.Hashing;
-using Xabbo.Interceptor.Tasks;
 
 namespace Xabbo.GEarth;
 
