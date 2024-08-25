@@ -275,7 +275,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
             p.Write(2 + packet.Length); // length of (header + data)
             p.Write(packet.Header.Value);
         }
-        p.Write(packet.Buffer);
+        p.Write(packet.Buffer.Span);
         p.Write(ToPacketFormat(packet.Header));
         SendInternal(p);
     }
