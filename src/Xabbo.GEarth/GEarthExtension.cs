@@ -542,9 +542,8 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
     {
         using Intercept intercept = ParseInterceptArgs(packet);
 
-        Header unmodifiedHeader = packet.Header;
-        int unmodifiedLength = packet.Length;
-
+        Header unmodifiedHeader = intercept.Packet.Header;
+        int unmodifiedLength = intercept.Packet.Length;
         uint checksum = Crc32.HashToUInt32(intercept.Packet.Buffer.Span);
 
         OnIntercepted(intercept);
