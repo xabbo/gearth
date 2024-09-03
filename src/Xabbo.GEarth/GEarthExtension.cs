@@ -119,7 +119,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         Disconnected?.Invoke();
     }
 
-    public event Action<Intercept>? Intercepted;
+    public event InterceptCallback? Intercepted;
     protected virtual void OnIntercepted(Intercept e) => Intercepted?.Invoke(e);
 
     /// <summary>
@@ -488,7 +488,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
      *   1 - Wedgie Incoming (Shockwave)
      *   2 - Wedgie Outgoing (Shockwave)
      */
-    private Intercept ParseInterceptArgs(Packet packet)
+    private (IPacket packet, int sequence, bool isBlocked, bool isModified) ParseInterceptArgs(Packet packet)
     {
         ReadOnlySpan<byte> packetBuffer = packet.Buffer.Span;
 
@@ -535,65 +535,75 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
 
         Header header = new(Session.Client.Type, direction, headerValue);
 
-        return new Intercept(this, new Packet(header, packetSpan[dataOffset..])) { Sequence = sequence };
+        return (new Packet(header, packetSpan[dataOffset..]), sequence, isBlocked, isModified);
     }
 
     private void HandlePacketIntercept(Packet packet)
     {
-        using Intercept intercept = ParseInterceptArgs(packet);
+        var (interceptedPacket, sequence, isBlocked, isModified) = ParseInterceptArgs(packet);
+        using IPacket originalPacket = interceptedPacket;
 
-        Header unmodifiedHeader = intercept.Packet.Header;
-        int unmodifiedLength = intercept.Packet.Length;
-        uint checksum = Crc32.HashToUInt32(intercept.Packet.Buffer.Span);
-
-        OnIntercepted(intercept);
-        Dispatcher.Dispatch(intercept);
-
-        if (intercept.Packet.Header.Client != Session.Client.Type)
-            throw new InvalidOperationException($"Invalid client {packet.Header.Client} on header, must be same as session: {Session.Client.Type}.");
-
-        bool isModified =
-            intercept.Packet.Header != unmodifiedHeader ||
-            intercept.Packet.Length != unmodifiedLength ||
-            checksum != Crc32.HashToUInt32(intercept.Packet.Buffer.Span);
-
-        string sequenceStr = intercept.Sequence.ToString();
-        int sequenceBytes = Encoding.ASCII.GetByteCount(sequenceStr);
-
-        using Packet p = new(
-            (Direction.Out, (short)GOutgoing.ManipulatedPacket),
-            capacity: 23 + sequenceBytes + packet.Length
-        );
-
-        // packet length placeholder
-        p.Write(-1);
-
-        p.Write((byte)(intercept.IsBlocked ? '1' : '0'));
-        p.Write(Tab);
-
-        Encoding.ASCII.GetBytes(sequenceStr, p.Allocate(sequenceBytes));
-        p.Write(Tab);
-
-        p.WriteSpan(intercept.Direction == Direction.In ? "TOCLIENT"u8 : "TOSERVER"u8);
-        p.Write(Tab);
-
-        p.Write((byte)(isModified ? '1' : '0'));
-        if (Session.Client.Type == ClientType.Shockwave)
+        try
         {
-            B64.Encode(p.Allocate(2), intercept.Packet.Header.Value);
+            Intercept intercept = new(this, ref interceptedPacket, ref isBlocked) { Sequence = sequence };
+
+            Header unmodifiedHeader = intercept.Packet.Header;
+            int unmodifiedLength = intercept.Packet.Length;
+            uint checksum = Crc32.HashToUInt32(intercept.Packet.Buffer.Span);
+
+            OnIntercepted(intercept);
+            Dispatcher.Dispatch(intercept);
+
+            if (intercept.Packet.Header.Client != Session.Client.Type)
+                throw new InvalidOperationException($"Invalid client {packet.Header.Client} on header, must be same as session: {Session.Client.Type}.");
+
+            isModified =
+                intercept.Packet.Header != unmodifiedHeader ||
+                intercept.Packet.Length != unmodifiedLength ||
+                checksum != Crc32.HashToUInt32(intercept.Packet.Buffer.Span);
+
+            string sequenceStr = intercept.Sequence.ToString();
+            int sequenceBytes = Encoding.ASCII.GetByteCount(sequenceStr);
+
+            using Packet p = new(
+                (Direction.Out, (short)GOutgoing.ManipulatedPacket),
+                capacity: 23 + sequenceBytes + packet.Length
+            );
+
+            // packet length placeholder
+            p.Write(-1);
+
+            p.Write((byte)(intercept.IsBlocked ? '1' : '0'));
+            p.Write(Tab);
+
+            Encoding.ASCII.GetBytes(sequenceStr, p.Allocate(sequenceBytes));
+            p.Write(Tab);
+
+            p.WriteSpan(intercept.Direction == Direction.In ? "TOCLIENT"u8 : "TOSERVER"u8);
+            p.Write(Tab);
+
+            p.Write((byte)(isModified ? '1' : '0'));
+            if (Session.Client.Type == ClientType.Shockwave)
+            {
+                B64.Encode(p.Allocate(2), intercept.Packet.Header.Value);
+            }
+            else
+            {
+                p.Write(2 + intercept.Packet.Length);
+                p.Write(intercept.Packet.Header.Value);
+            }
+
+            p.WriteSpan(intercept.Packet.Buffer.Span);
+            p.WriteAt(0, p.Length - 4);
+
+            p.Write(ToPacketFormat(packet.Header));
+
+            SendInternal(p);
         }
-        else
+        finally
         {
-            p.Write(2 + intercept.Packet.Length);
-            p.Write(intercept.Packet.Header.Value);
+            interceptedPacket.Dispose();
         }
-
-        p.WriteSpan(intercept.Packet.Buffer.Span);
-        p.WriteAt(0, p.Length - 4);
-
-        p.Write(ToPacketFormat(packet.Header));
-
-        SendInternal(p);
     }
 
     private static void HandleFlagsCheck(Packet _) { }
