@@ -256,7 +256,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         if (packet.Header.Client != Session.Client.Type)
             throw new InvalidOperationException($"Invalid client {packet.Header.Client} on header, must be same as session: {Session.Client.Type}.");
 
-        using var p = new Packet((Direction.Out, (short)GOutgoing.SendMessage), capacity: 11 + packet.Length);
+        using Packet p = new((Direction.Out, (short)GOutgoing.SendMessage), capacity: 11 + packet.Length);
         p.Write((byte)(packet.Header.Direction == Direction.Out ? 1 : 0));
 
         if (Session.Client.Type == ClientType.Shockwave)
@@ -273,7 +273,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
             p.Write(2 + packet.Length); // length of (header + data)
             p.Write(packet.Header.Value);
         }
-        p.Write(packet.Buffer.Span);
+        p.WriteSpan(packet.Buffer.Span);
         p.Write(ToPacketFormat(packet.Header));
         SendInternal(p);
     }
@@ -574,7 +574,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         Encoding.ASCII.GetBytes(sequenceStr, p.Allocate(sequenceBytes));
         p.Write(Tab);
 
-        p.Write(intercept.Direction == Direction.In ? "TOCLIENT"u8 : "TOSERVER"u8);
+        p.WriteSpan(intercept.Direction == Direction.In ? "TOCLIENT"u8 : "TOSERVER"u8);
         p.Write(Tab);
 
         p.Write((byte)(isModified ? '1' : '0'));
@@ -588,7 +588,7 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
             p.Write(intercept.Packet.Header.Value);
         }
 
-        p.Write(intercept.Packet.Buffer.Span);
+        p.WriteSpan(intercept.Packet.Buffer.Span);
         p.WriteAt(0, p.Length - 4);
 
         p.Write(ToPacketFormat(packet.Header));

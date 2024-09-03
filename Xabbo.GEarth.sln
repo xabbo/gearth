@@ -9,11 +9,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Submodules", "Submodules", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.Common", "lib\common\src\Xabbo.Common\Xabbo.Common.csproj", "{3AB6A399-E23E-49F8-9CAF-61EBBDF1747C}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xabbo.Common.Internal.Generators", "lib\common\src\Xabbo.Common.Internal.Generators\Xabbo.Common.Internal.Generators.csproj", "{0BAB1434-1C49-44FE-927C-61493B8E8DEB}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{DAC01C34-42B9-45D8-B095-454933772951}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xabbo.GEarth.Internal.Generator", "src\Xabbo.GEarth.Internal.Generator\Xabbo.GEarth.Internal.Generator.csproj", "{83ADC4C1-8C15-44B1-8315-CC87112138E6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{92F41E5F-5A3F-48E4-B601-4321C0103659}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "common", "common", "{474FD47C-AFAA-4B7C-B446-67BC14ABF5F6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{4EA31985-3CBF-4263-AC12-4A48A6F11D3D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xabbo.Common.Generator", "lib\common\src\Xabbo.Common.Generator\Xabbo.Common.Generator.csproj", "{9CEA32BD-F198-4291-8718-E29F50F70C60}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -29,22 +35,24 @@ Global
 		{3AB6A399-E23E-49F8-9CAF-61EBBDF1747C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3AB6A399-E23E-49F8-9CAF-61EBBDF1747C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3AB6A399-E23E-49F8-9CAF-61EBBDF1747C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0BAB1434-1C49-44FE-927C-61493B8E8DEB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0BAB1434-1C49-44FE-927C-61493B8E8DEB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0BAB1434-1C49-44FE-927C-61493B8E8DEB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0BAB1434-1C49-44FE-927C-61493B8E8DEB}.Release|Any CPU.Build.0 = Release|Any CPU
 		{83ADC4C1-8C15-44B1-8315-CC87112138E6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{83ADC4C1-8C15-44B1-8315-CC87112138E6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{83ADC4C1-8C15-44B1-8315-CC87112138E6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{83ADC4C1-8C15-44B1-8315-CC87112138E6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9CEA32BD-F198-4291-8718-E29F50F70C60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9CEA32BD-F198-4291-8718-E29F50F70C60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9CEA32BD-F198-4291-8718-E29F50F70C60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9CEA32BD-F198-4291-8718-E29F50F70C60}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{3AB6A399-E23E-49F8-9CAF-61EBBDF1747C} = {E8BF5185-9038-4A99-8EB1-9A3C2686D7AE}
-		{0BAB1434-1C49-44FE-927C-61493B8E8DEB} = {E8BF5185-9038-4A99-8EB1-9A3C2686D7AE}
 		{83ADC4C1-8C15-44B1-8315-CC87112138E6} = {DAC01C34-42B9-45D8-B095-454933772951}
+		{474FD47C-AFAA-4B7C-B446-67BC14ABF5F6} = {92F41E5F-5A3F-48E4-B601-4321C0103659}
+		{4EA31985-3CBF-4263-AC12-4A48A6F11D3D} = {474FD47C-AFAA-4B7C-B446-67BC14ABF5F6}
+		{9CEA32BD-F198-4291-8718-E29F50F70C60} = {4EA31985-3CBF-4263-AC12-4A48A6F11D3D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {64473010-77F2-4DEC-8CF3-1C4C25541E53}

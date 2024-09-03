@@ -56,6 +56,6 @@ public class SourceGenerator : ISourceGenerator
 
     public void Execute(GeneratorExecutionContext context)
     {
-        context.AddSource("GEarthExtension.g.cs", RenderTemplate("GEarthExtension.sbncs", new { MaxParams }));
+        // context.AddSource("GEarthExtension.g.cs", RenderTemplate("GEarthExtension.sbncs", new { MaxParams }));
     }
 }
