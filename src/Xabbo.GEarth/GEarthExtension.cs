@@ -14,13 +14,14 @@ using System.Runtime.CompilerServices;
 
 using Xabbo.Messages;
 using Xabbo.Extension;
+using Xabbo.Interceptor;
 
 namespace Xabbo.GEarth;
 
 /// <summary>
 /// A G-Earth extension protocol implementation.
 /// </summary>
-public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
+public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, INotifyPropertyChanged
 {
     const int DefaultPort = 9092;
     const byte Tab = 0x09;
@@ -165,6 +166,8 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         private set => Set(ref _session, value);
     }
 
+    IInterceptor IInterceptorContext.Interceptor => this;
+
     /// <summary>
     /// Creates a new <see cref="GEarthExtension"/> with the specified <see cref="GEarthOptions"/>.
     /// </summary>
@@ -276,22 +279,6 @@ public partial class GEarthExtension : IRemoteExtension, INotifyPropertyChanged
         p.WriteSpan(packet.Buffer.Span);
         p.Write(ToPacketFormat(packet.Header));
         SendInternal(p);
-    }
-
-    protected Task<IPacket> ReceiveAsync(ReadOnlySpan<Header> headers,
-        int timeout = -1, bool block = false, Func<IPacket, bool>? shouldCapture = null,
-        CancellationToken cancellationToken = default)
-    {
-        return InterceptorExtensions.ReceiveAsync(this,
-            headers, timeout, block, shouldCapture, cancellationToken);
-    }
-
-    protected Task<IPacket> ReceiveAsync(ReadOnlySpan<Identifier> identifiers,
-        int timeout = -1, bool block = false, Func<IPacket, bool>? shouldCapture = null,
-        CancellationToken cancellationToken = default)
-    {
-        return InterceptorExtensions.ReceiveAsync(this,
-            identifiers, timeout, block, shouldCapture, cancellationToken);
     }
 
     private async Task HandleInterceptorAsync(GEarthConnectOptions connectOpts, CancellationToken cancellationToken)
