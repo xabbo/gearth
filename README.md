@@ -12,6 +12,7 @@ Requires the [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0
 git clone https://github.com/xabbo/gearth xabbo/gearth
 cd xabbo/gearth
 git submodule update --init
+git submodule foreach 'git checkout -b xabbo/gearth'
 ```
 - Build with the .NET CLI.
 ```
