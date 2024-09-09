@@ -39,7 +39,6 @@
   </PropertyGroup>
 
   <ItemGroup Label="References">
-    <ProjectReference Include="..\Xabbo.GEarth.Internal.Generator\Xabbo.GEarth.Internal.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="$(XabboCommonDir)src\Xabbo.Common\Xabbo.Common.csproj" />
     <ProjectReference Include="$(XabboCommonDir)src\Xabbo.Common.Generator\Xabbo.Common.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <PackageReference Include="GitVersion.MsBuild" Version="6.0.2" PrivateAssets="all" />
