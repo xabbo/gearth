@@ -2,10 +2,17 @@
 
 version: '3'
 
-vars:
-  GREETING: Hello, World!
-
 tasks:
+  init:
+    cmds:
+      - git config --local core.hooksPath .githooks/
+  build:
+    cmds:
+      - dotnet build
+  test:
+    deps: [build]
+    cmds:
+      - dotnet test --no-build
   rebuild:
     cmds:
       - dotnet clean
