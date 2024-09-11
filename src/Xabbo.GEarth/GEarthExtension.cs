@@ -329,6 +329,64 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         }
     }
 
+    private static async Task FillPipeAsync(Stream stream, PipeWriter writer, CancellationToken cancellationToken)
+    {
+        const int minimumBufferSize = 4096;
+
+        try
+        {
+            while (true)
+            {
+                Memory<byte> memory = writer.GetMemory(minimumBufferSize);
+
+                int bytesRead = await stream.ReadAsync(memory, cancellationToken);
+                if (bytesRead == 0) break;
+
+                writer.Advance(bytesRead);
+
+                FlushResult result = await writer.FlushAsync(cancellationToken);
+                if (result.IsCompleted) break;
+            }
+        }
+        catch (IOException) { }
+
+        await writer.CompleteAsync();
+    }
+
+    private async Task ProcessPipeAsync(PipeReader reader, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            ReadResult result = await reader.ReadAsync(cancellationToken);
+            ReadOnlySequence<byte> buffer = result.Buffer;
+
+            try
+            {
+                while (TryReadPacketData(ref buffer, out ReadOnlySequence<byte> data))
+                {
+                    using Packet packet = new(
+                        (Direction.In, ParsePacketHeader(data)),
+                        data.Slice(2, data.Length - 2)
+                    );
+                    HandlePacket(packet);
+                }
+
+                if (result.IsCompleted) break;
+            }
+            catch
+            {
+                _ns?.Close();
+                throw;
+            }
+            finally
+            {
+                reader.AdvanceTo(buffer.Start, buffer.End);
+            }
+        }
+
+        await reader.CompleteAsync();
+    }
+
     private static int ParsePacketLength(in ReadOnlySequence<byte> buffer)
     {
         if (buffer.First.Length >= 4)
@@ -357,72 +415,24 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         }
     }
 
-    private static async Task FillPipeAsync(Stream stream, PipeWriter writer, CancellationToken cancellationToken)
+    private static bool TryReadPacketData(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> data)
     {
-        const int minimumBufferSize = 4096;
-
-        Exception? error = null;
-
-        while (true)
+        if (buffer.Length < 4)
         {
-            Memory<byte> memory = writer.GetMemory(minimumBufferSize);
-            try
-            {
-                int bytesRead = await stream.ReadAsync(memory, cancellationToken);
-                if (bytesRead == 0) break;
-
-                writer.Advance(bytesRead);
-            }
-            catch (Exception ex)
-            {
-                error = ex;
-                break;
-            }
-
-            FlushResult result = await writer.FlushAsync(cancellationToken);
-            if (result.IsCompleted) break;
+            data = default;
+            return false;
         }
 
-        await writer.CompleteAsync(error);
-    }
-
-    private async Task ProcessPipeAsync(PipeReader reader, CancellationToken cancellationToken)
-    {
-        Exception? error = null;
-
-        while (true)
+        int packetLength = ParsePacketLength(buffer);
+        if (buffer.Length < (4 + packetLength))
         {
-            ReadResult result = await reader.ReadAsync(cancellationToken);
-            ReadOnlySequence<byte> buffer = result.Buffer;
-
-            while (buffer.Length >= 4)
-            {
-                int packetLength = ParsePacketLength(buffer);
-                if (buffer.Length < (4 + packetLength)) break;
-
-                buffer = buffer.Slice(4);
-                Header header = (Direction.In, ParsePacketHeader(buffer));
-
-                using Packet packet = new(header, buffer.Slice(2, packetLength - 2));
-
-                buffer = buffer.Slice(packetLength);
-
-                try { HandlePacket(packet); }
-                catch (Exception ex)
-                {
-                    error = ex;
-                    break;
-                }
-            }
-
-            if (error is not null) break;
-
-            reader.AdvanceTo(buffer.Start, buffer.End);
-
-            if (result.IsCompleted) break;
+            data = default;
+            return false;
         }
 
-        await reader.CompleteAsync(error);
+        data = buffer.Slice(4, packetLength);
+        buffer = buffer.Slice(4 + packetLength);
+        return true;
     }
 
     private void HandlePacket(Packet packet)
