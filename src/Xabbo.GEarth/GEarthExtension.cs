@@ -599,7 +599,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             p.WriteSpan(intercept.Packet.Buffer.Span);
             p.WriteAt(0, p.Length - 4);
 
-            p.Write(ToPacketFormat(packet.Header));
+            p.Write(ToPacketFormat(intercept.Packet.Header));
 
             SendInternal(p);
         }
