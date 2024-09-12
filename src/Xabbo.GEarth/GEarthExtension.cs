@@ -532,7 +532,10 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
         Header header = new(Session.Client.Type, direction, headerValue);
 
-        return (new Packet(header, packetSpan[dataOffset..]), sequence, isBlocked, isModified);
+        return (
+            new Packet(header, packetSpan[dataOffset..]) { Context = this },
+            sequence, isBlocked, isModified
+        );
     }
 
     private void HandlePacketIntercept(Packet packet)
@@ -546,7 +549,9 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
             Header unmodifiedHeader = intercept.Packet.Header;
             int unmodifiedLength = intercept.Packet.Length;
-            uint checksum = Crc32.HashToUInt32(intercept.Packet.Buffer.Span);
+            uint checksum = 0;
+            if (!isModified)
+                Crc32.HashToUInt32(intercept.Packet.Buffer.Span);
 
             OnIntercepted(intercept);
             Dispatcher.Dispatch(intercept);
@@ -555,6 +560,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
                 throw new InvalidOperationException($"Invalid client {packet.Header.Client} on header, must be same as session: {Session.Client.Type}.");
 
             isModified =
+                isModified ||
                 intercept.Packet.Header != unmodifiedHeader ||
                 intercept.Packet.Length != unmodifiedLength ||
                 checksum != Crc32.HashToUInt32(intercept.Packet.Buffer.Span);
