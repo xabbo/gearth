@@ -538,74 +538,74 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         );
     }
 
-    private void HandlePacketIntercept(Packet packet)
+    private void HandlePacketIntercept(Packet rawPacketIntercept)
     {
-        var (interceptedPacket, sequence, isBlocked, isModified) = ParseInterceptArgs(packet);
-        using IPacket originalPacket = interceptedPacket;
+        var (packet, sequence, isBlocked, isModified) = ParseInterceptArgs(rawPacketIntercept);
+        using IPacket originalPacket = packet;
 
         try
         {
-            Intercept intercept = new(this, ref interceptedPacket, ref isBlocked) { Sequence = sequence };
+            Intercept intercept = new(this, ref packet, ref isBlocked) { Sequence = sequence };
 
-            Header unmodifiedHeader = intercept.Packet.Header;
-            int unmodifiedLength = intercept.Packet.Length;
+            Header unmodifiedHeader = packet.Header;
+            int unmodifiedLength = packet.Length;
             uint checksum = 0;
             if (!isModified)
-                Crc32.HashToUInt32(intercept.Packet.Buffer.Span);
+                checksum = Crc32.HashToUInt32(packet.Buffer.Span);
 
             OnIntercepted(intercept);
             Dispatcher.Dispatch(intercept);
 
-            if (intercept.Packet.Header.Client != Session.Client.Type)
+            if (packet.Header.Client != Session.Client.Type)
                 throw new InvalidOperationException($"Invalid client {packet.Header.Client} on header, must be same as session: {Session.Client.Type}.");
 
             isModified =
                 isModified ||
-                intercept.Packet.Header != unmodifiedHeader ||
-                intercept.Packet.Length != unmodifiedLength ||
-                checksum != Crc32.HashToUInt32(intercept.Packet.Buffer.Span);
+                packet.Header != unmodifiedHeader ||
+                packet.Length != unmodifiedLength ||
+                checksum != Crc32.HashToUInt32(packet.Buffer.Span);
 
             string sequenceStr = intercept.Sequence.ToString();
             int sequenceBytes = Encoding.ASCII.GetByteCount(sequenceStr);
 
-            using Packet p = new(
+            using Packet response = new(
                 (Direction.Out, (short)GOutgoing.ManipulatedPacket),
                 capacity: 23 + sequenceBytes + packet.Length
             );
 
             // packet length placeholder
-            p.Write(-1);
+            response.Write(-1);
 
-            p.Write((byte)(intercept.IsBlocked ? '1' : '0'));
-            p.Write(Tab);
+            response.Write((byte)(intercept.IsBlocked ? '1' : '0'));
+            response.Write(Tab);
 
-            Encoding.ASCII.GetBytes(sequenceStr, p.Allocate(sequenceBytes));
-            p.Write(Tab);
+            Encoding.ASCII.GetBytes(sequenceStr, response.Allocate(sequenceBytes));
+            response.Write(Tab);
 
-            p.WriteSpan(intercept.Direction == Direction.In ? "TOCLIENT"u8 : "TOSERVER"u8);
-            p.Write(Tab);
+            response.WriteSpan(intercept.Direction == Direction.In ? "TOCLIENT"u8 : "TOSERVER"u8);
+            response.Write(Tab);
 
-            p.Write((byte)(isModified ? '1' : '0'));
+            response.Write((byte)(isModified ? '1' : '0'));
             if (Session.Client.Type == ClientType.Shockwave)
             {
-                B64.Encode(p.Allocate(2), intercept.Packet.Header.Value);
+                B64.Encode(response.Allocate(2), packet.Header.Value);
             }
             else
             {
-                p.Write(2 + intercept.Packet.Length);
-                p.Write(intercept.Packet.Header.Value);
+                response.Write(2 + packet.Length);
+                response.Write(packet.Header.Value);
             }
 
-            p.WriteSpan(intercept.Packet.Buffer.Span);
-            p.WriteAt(0, p.Length - 4);
+            response.WriteSpan(packet.Buffer.Span);
+            response.WriteAt(0, response.Length - 4);
 
-            p.Write(ToPacketFormat(intercept.Packet.Header));
+            response.Write(ToPacketFormat(packet.Header));
 
-            SendInternal(p);
+            SendInternal(response);
         }
         finally
         {
-            interceptedPacket.Dispose();
+            packet.Dispose();
         }
     }
 
