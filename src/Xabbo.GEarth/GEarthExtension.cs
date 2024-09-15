@@ -468,7 +468,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         p.Write(
             Options.Name, Options.Author,
             Options.Version, Options.Description,
-            Options.ShowEventButton,
+            Activated is not null,
             !string.IsNullOrWhiteSpace(_currentConnectOpts.FileName),
             _currentConnectOpts.FileName ?? "",
             _currentConnectOpts.Cookie ?? "",

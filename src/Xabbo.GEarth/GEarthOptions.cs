@@ -46,12 +46,6 @@ public sealed record GEarthOptions
     public string Version { get; init; } = string.Empty;
 
     /// <summary>
-    /// Specifies whether to show the event (green play) button in G-Earth.
-    /// Defaults to <c>true</c>.
-    /// </summary>
-    public bool ShowEventButton { get; init; } = true;
-
-    /// <summary>
     /// Specifies whether to show the leave button in G-Earth.
     /// Defaults to <c>true</c>.
     /// </summary>
