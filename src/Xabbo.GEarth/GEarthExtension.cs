@@ -12,6 +12,9 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 using Xabbo.Messages;
 using Xabbo.Extension;
 using Xabbo.Interceptor;
@@ -93,6 +96,8 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    private readonly ILogger Log;
+
     private readonly SemaphoreSlim _runSemaphore = new(1, 1);
     private readonly SemaphoreSlim _sendSemaphore = new(1, 1);
 
@@ -171,12 +176,19 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
     /// <summary>
     /// Creates a new <see cref="GEarthExtension"/> with the specified <see cref="GEarthOptions"/>.
     /// </summary>
-    /// <param name="messages">The message manager to use.</param>
     /// <param name="options">The options to be used by this extension.</param>
-    public GEarthExtension(IMessageManager messages, GEarthOptions options)
+    /// <param name="messages">The message manager to use.</param>
+    /// <param name="loggerFactory">The logger factory to use.</param>
+    public GEarthExtension(
+        GEarthOptions? options = null,
+        IMessageManager? messages = null,
+        ILoggerFactory? loggerFactory = null)
     {
-        Messages = messages;
+        Log = (ILogger?)loggerFactory?.CreateLogger<GEarthExtension>() ?? NullLogger.Instance;
+        Messages = messages ?? new MessageManager("messages.ini");
         Dispatcher = new MessageDispatcher(this);
+
+        options ??= GEarthOptions.Default;
 
         if (this is IExtensionInfoInit init)
         {
@@ -193,22 +205,6 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
         Options = options;
     }
-
-    /// <summary>
-    /// Creates a new <see cref="GEarthExtension"/> with the specified <see cref="GEarthOptions"/>.
-    /// Uses a <see cref="MessageManager"/> which loads a file named <c>messages.ini</c>.
-    /// </summary>
-    /// <param name="options">The options to be used by this extension.</param>
-    public GEarthExtension(GEarthOptions options)
-        : this(new MessageManager("messages.ini"), options)
-    { }
-
-    /// <summary>
-    /// Creates a new <see cref="GEarthExtension"/> with the default options.
-    /// </summary>
-    public GEarthExtension()
-        : this(GEarthOptions.Default)
-    { }
 
     public Task RunAsync(CancellationToken cancellationToken) => RunAsync(default, cancellationToken);
     public async Task RunAsync(GEarthConnectOptions connectOpts = default, CancellationToken cancellationToken = default)
@@ -283,15 +279,31 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
     private async Task HandleInterceptorAsync(GEarthConnectOptions connectOpts, CancellationToken cancellationToken)
     {
+        bool connected = false;
         try
         {
+            Log.Debug("Connecting to G-Earth on {Host}:{Port}", connectOpts.Host, connectOpts.Port);
+
             _tcpClient = await ConnectAsync(connectOpts, cancellationToken);
+            connected = true;
+
+            Log.Info("Connected to G-Earth on {Host}:{Port}");
 
             Pipe pipe = new();
             await Task.WhenAll(
                 FillPipeAsync(_ns = _tcpClient.GetStream(), pipe.Writer, cancellationToken),
                 ProcessPipeAsync(pipe.Reader, cancellationToken)
             );
+        }
+        catch (Exception ex)
+        {
+            if (!connected)
+                throw new Exception($"Failed to connected to G-Earth on {connectOpts.Host}:{connectOpts.Port}.");
+
+            if (ex is not UnhandledInterceptException)
+                Log.Critical(ex, "{Message}", args: [ex.Message]);
+
+            throw;
         }
         finally
         {
@@ -316,17 +328,10 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         string host = connectInfo.Host ?? "127.0.0.1";
         int port = connectInfo.Port ?? DefaultPort;
 
-        try
-        {
-            TcpClient client = new();
-            await client.ConnectAsync(host, port, cancellationToken);
-            Port = port;
-            return client;
-        }
-        catch (SocketException)
-        {
-            throw new Exception($"Failed to connect to G-Earth on {host}:{port}.");
-        }
+        TcpClient client = new();
+        await client.ConnectAsync(host, port, cancellationToken);
+        Port = port;
+        return client;
     }
 
     private static async Task FillPipeAsync(Stream stream, PipeWriter writer, CancellationToken cancellationToken)
@@ -446,7 +451,9 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             case GIncoming.ConnectionStart: HandleConnectionStart(packet); break;
             case GIncoming.ConnectionEnd: HandleConnectionEnd(packet); break;
             case GIncoming.Init: HandleInit(packet); break;
-            default: break;
+            default:
+                Log.Warn("Unhandled packet received from G-Earth with header {Header}.", args: [packet.Header.Value]);
+                break;
         };
     }
 
@@ -454,6 +461,8 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
     private void HandleInfoRequest(Packet _)
     {
+        Log.Debug("Extension information requested by G-Earth.");
+
         using Packet p = new((Direction.Out, (short)GOutgoing.Info), capacity: 256);
 
         p.Write(
@@ -505,7 +514,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         }
 
         if (current != tabs.Length)
-            throw new InvalidOperationException("Invalid packet intercept data (insufficient delimiter bytes).");
+            throw new FormatException("Invalid packet intercept data (insufficient delimiter bytes).");
 
         bool isBlocked = data[0] == '1';
         int sequence = int.Parse(data[(tabs[0]+1)..tabs[1]]);
@@ -553,8 +562,20 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             if (!isModified)
                 checksum = Crc32.HashToUInt32(packet.Buffer.Span);
 
-            OnIntercepted(intercept);
-            Dispatcher.Dispatch(intercept);
+            try
+            {
+                OnIntercepted(intercept);
+                Dispatcher.Dispatch(intercept);
+            }
+            catch (UnhandledInterceptException ex)
+            {
+                string messageName = "?";
+                if (Messages.TryGetNames(unmodifiedHeader, out MessageNames names))
+                    messageName = names.GetName(unmodifiedHeader.Client) ?? "?";
+                Log.Error(ex, "Unhandled exception in handler {Header} ({MessageName}): {Error}",
+                    args: [unmodifiedHeader, messageName, ex.InnerException?.Message]);
+                throw;
+            }
 
             if (packet.Header.Client != Session.Client.Type)
                 throw new InvalidOperationException($"Invalid client {packet.Header.Client} on header, must be same as session: {Session.Client.Type}.");
@@ -609,7 +630,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         }
     }
 
-    private static void HandleFlagsCheck(Packet _) { }
+    private void HandleFlagsCheck(Packet _) => Log.Trace("Received flags check.");
 
     private void HandleConnectionStart(Packet packet)
     {
@@ -621,10 +642,12 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             "UNITY" => ClientType.Unity,
             "FLASH" => ClientType.Flash,
             "SHOCKWAVE" => ClientType.Shockwave,
-            _ => ClientType.None,
+            _ => throw new Exception($"Unknown client type received from G-Earth: '{clientTypeStr}'.")
         };
 
         Hotel hotel = Hotel.FromGameHost(host);
+        if (hotel == Hotel.None)
+            Log.Warn("Unknown hotel for game host '{Host}'.", args: [host]);
 
         int n = packet.Read<int>();
         List<ClientMessage> messages = new(n);
@@ -635,7 +658,12 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             messages.Add(new(clientType, isOutgoing ? Direction.Out : Direction.In, (short)id, name));
         }
 
+        Log.Info("Game connection to {Host}:{Port} on {Client} ({ClientVersion}) established.",
+            args: [host, port, clientType, clientVersion]);
+
         Messages.LoadMessages(messages);
+
+        Log.Info("Loaded {Count} messages.", args: [messages.Count]);
 
         Session = new(hotel, new Client(clientType, clientIdentifier, clientVersion));
         IsConnected = true;
@@ -649,26 +677,26 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         });
 
         if (this is IMessageHandler handler)
+        {
+            Log.Trace("Attaching extension to dispatcher.");
             handler.Attach(this);
+        }
     }
 
     private void HandleConnectionEnd(Packet _)
     {
-        try
-        {
-            IsConnected = false;
-            Dispatcher.Reset();
-            OnDisconnected();
-        }
-        finally
-        {
-            Session = Session.None;
-        }
+        Log.Info("Game connection ended.");
+        IsConnected = false;
+        Dispatcher.Reset();
+        Session = Session.None;
+        OnDisconnected();
     }
 
     private void HandleInit(Packet packet)
     {
         bool? isGameConnected = (packet.Position < packet.Length) ? packet.Read<bool>() : null;
+
+        Log.Info("Extension initialized by G-Earth. (game connected: {Connected})", args: [isGameConnected]);
 
         OnInitialized(new InitializedArgs(isGameConnected));
     }
