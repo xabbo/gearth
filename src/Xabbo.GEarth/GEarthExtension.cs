@@ -282,12 +282,15 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         bool connected = false;
         try
         {
-            Log.Debug("Connecting to G-Earth on {Host}:{Port}", connectOpts.Host, connectOpts.Port);
+            string host = connectOpts.Host ?? "127.0.0.1";
+            int port = connectOpts.Port ?? DefaultPort;
 
-            _tcpClient = await ConnectAsync(connectOpts, cancellationToken);
+            Log.LogDebug("Connecting to G-Earth on {Host}:{Port}", host, port);
+
+            _tcpClient = await ConnectAsync(host, port, cancellationToken);
             connected = true;
 
-            Log.Info("Connected to G-Earth on {Host}:{Port}");
+            Log.LogInformation("Connected to G-Earth on {Host}:{Port}.", host, port);
 
             Pipe pipe = new();
             await Task.WhenAll(
@@ -298,10 +301,10 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         catch (Exception ex)
         {
             if (!connected)
-                throw new Exception($"Failed to connected to G-Earth on {connectOpts.Host}:{connectOpts.Port}.");
+                throw new Exception($"Failed to connect to G-Earth on {connectOpts.Host}:{connectOpts.Port}: {ex.Message}.");
 
             if (ex is not UnhandledInterceptException)
-                Log.Critical(ex, "{Message}", args: [ex.Message]);
+                Log.LogCritical(ex, "{Message}", [ex.Message]);
 
             throw;
         }
@@ -323,11 +326,8 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         }
     }
 
-    private async Task<TcpClient> ConnectAsync(GEarthConnectOptions connectInfo, CancellationToken cancellationToken)
+    private async Task<TcpClient> ConnectAsync(string host, int port, CancellationToken cancellationToken)
     {
-        string host = connectInfo.Host ?? "127.0.0.1";
-        int port = connectInfo.Port ?? DefaultPort;
-
         TcpClient client = new();
         await client.ConnectAsync(host, port, cancellationToken);
         Port = port;
@@ -452,7 +452,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             case GIncoming.ConnectionEnd: HandleConnectionEnd(packet); break;
             case GIncoming.Init: HandleInit(packet); break;
             default:
-                Log.Warn("Unhandled packet received from G-Earth with header {Header}.", args: [packet.Header.Value]);
+                Log.LogWarning("Unhandled packet received from G-Earth with header {Header}.", packet.Header.Value);
                 break;
         };
     }
@@ -461,7 +461,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
     private void HandleInfoRequest(Packet _)
     {
-        Log.Debug("Extension information requested by G-Earth.");
+        Log.LogDebug("Extension information requested by G-Earth.");
 
         using Packet p = new((Direction.Out, (short)GOutgoing.Info), capacity: 256);
 
@@ -572,8 +572,8 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
                 string messageName = "?";
                 if (Messages.TryGetNames(unmodifiedHeader, out MessageNames names))
                     messageName = names.GetName(unmodifiedHeader.Client) ?? "?";
-                Log.Error(ex, "Unhandled exception in handler {Header} ({MessageName}): {Error}",
-                    args: [unmodifiedHeader, messageName, ex.InnerException?.Message]);
+                Log.LogError(ex, "Unhandled exception in handler {Header} ({MessageName}): {Error}",
+                    unmodifiedHeader, messageName, ex.InnerException?.Message);
                 throw;
             }
 
@@ -630,7 +630,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         }
     }
 
-    private void HandleFlagsCheck(Packet _) => Log.Trace("Received flags check.");
+    private void HandleFlagsCheck(Packet _) => Log.LogTrace("Received flags check.");
 
     private void HandleConnectionStart(Packet packet)
     {
@@ -647,7 +647,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
         Hotel hotel = Hotel.FromGameHost(host);
         if (hotel == Hotel.None)
-            Log.Warn("Unknown hotel for game host '{Host}'.", args: [host]);
+            Log.LogWarning("Unknown hotel for game host '{Host}'.", host);
 
         int n = packet.Read<int>();
         List<ClientMessage> messages = new(n);
@@ -658,12 +658,12 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             messages.Add(new(clientType, isOutgoing ? Direction.Out : Direction.In, (short)id, name));
         }
 
-        Log.Info("Game connection to {Host}:{Port} on {Client} ({ClientVersion}) established.",
-            args: [host, port, clientType, clientVersion]);
+        Log.LogInformation("Game connection to {Host}:{Port} on {Client} ({ClientVersion}) established.",
+            host, port, clientType, clientVersion);
 
         Messages.LoadMessages(messages);
 
-        Log.Info("Loaded {Count} messages.", args: [messages.Count]);
+        Log.LogInformation("Loaded {Count} messages.", messages.Count);
 
         Session = new(hotel, new Client(clientType, clientIdentifier, clientVersion));
         IsConnected = true;
@@ -678,14 +678,14 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
         if (this is IMessageHandler handler)
         {
-            Log.Trace("Attaching extension to dispatcher.");
+            Log.LogTrace("Attaching extension to dispatcher.");
             handler.Attach(this);
         }
     }
 
     private void HandleConnectionEnd(Packet _)
     {
-        Log.Info("Game connection ended.");
+        Log.LogInformation("Game connection ended.");
         IsConnected = false;
         Dispatcher.Reset();
         Session = Session.None;
@@ -696,7 +696,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
     {
         bool? isGameConnected = (packet.Position < packet.Length) ? packet.Read<bool>() : null;
 
-        Log.Info("Extension initialized by G-Earth. (game connected: {Connected})", args: [isGameConnected]);
+        Log.LogInformation("Extension initialized by G-Earth. (game connected: {Connected})", isGameConnected);
 
         OnInitialized(new InitializedArgs(isGameConnected));
     }
