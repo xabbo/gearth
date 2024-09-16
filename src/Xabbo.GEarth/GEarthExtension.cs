@@ -239,6 +239,8 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         }
     }
 
+    public void Run() => RunAsync().GetAwaiter().GetResult();
+
     public void Stop()
     {
         if (!IsRunning) return;
