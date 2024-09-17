@@ -185,7 +185,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         ILoggerFactory? loggerFactory = null)
     {
         Log = (ILogger?)loggerFactory?.CreateLogger<GEarthExtension>() ?? NullLogger.Instance;
-        Messages = messages ?? new MessageManager("messages.ini");
+        Messages = messages ?? new MessageManager(null, loggerFactory);
         Dispatcher = new MessageDispatcher(this);
 
         options ??= GEarthOptions.Default;
