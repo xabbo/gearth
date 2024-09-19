@@ -15,35 +15,29 @@ public sealed record GEarthOptions
     /// <summary>
     /// Gets the default options with the entry assembly's name and version.
     /// </summary>
-    public static GEarthOptions Default => new GEarthOptions
-        {
-            Name = "<no name>",
-            Description = "<no description>",
-            Author = "<no author>",
-            Version = "0.1",
-        }
+    public static GEarthOptions Default => new GEarthOptions()
         .WithAssemblyName()
         .WithAssemblyVersion();
 
     /// <summary>
     /// The name of the extension.
     /// </summary>
-    public string Name { get; init; } = string.Empty;
+    public string Name { get; init; } = "(no name)";
 
     /// <summary>
     /// The description of the extension.
     /// </summary>
-    public string Description { get; init; } = string.Empty;
+    public string Description { get; init; } = "(no description)";
 
     /// <summary>
     /// The author of the extension.
     /// </summary>
-    public string Author { get; init; } = string.Empty;
+    public string Author { get; init; } = "(no author)";
 
     /// <summary>
     /// The version of the extension.
     /// </summary>
-    public string Version { get; init; } = string.Empty;
+    public string Version { get; init; } = "alpha";
 
     /// <summary>
     /// Specifies whether to show the leave button in G-Earth.
@@ -82,7 +76,8 @@ public sealed record GEarthOptions
     /// </summary>
     public GEarthOptions WithInformationalVersion() => this with
     {
-        Version = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion ?? "unknown"
+        Version = Assembly.GetEntryAssembly()?
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion ?? "unknown"
     };
 }
