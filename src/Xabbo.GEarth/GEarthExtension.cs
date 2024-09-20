@@ -104,9 +104,10 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
     private TcpClient? _tcpClient;
     private NetworkStream? _ns;
     private GEarthConnectOptions _currentConnectOpts;
+    private bool _preEstablished;
 
     private CancellationTokenSource? _cancellation;
-    private CancellationTokenSource _ctsDisconnect = new CancellationTokenSource();
+    private CancellationTokenSource _ctsDisconnect = new();
     public CancellationToken DisconnectToken => _ctsDisconnect.Token;
 
     #region - Events -
@@ -676,6 +677,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             Port = port,
             Session = Session,
             Messages = messages,
+            PreEstablished = _preEstablished
         });
 
         if (this is IMessageHandler handler)
@@ -688,6 +690,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
     private void HandleConnectionEnd(Packet _)
     {
         Log.LogInformation("Game connection ended.");
+        _preEstablished = false;
         IsConnected = false;
         Dispatcher.Reset();
         Session = Session.None;
@@ -697,6 +700,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
     private void HandleInit(Packet packet)
     {
         bool? isGameConnected = (packet.Position < packet.Length) ? packet.Read<bool>() : null;
+        _preEstablished = isGameConnected == true;
 
         Log.LogInformation("Extension initialized by G-Earth. (game connected: {Connected})", isGameConnected);
 
