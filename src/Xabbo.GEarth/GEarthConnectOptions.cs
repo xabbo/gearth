@@ -2,6 +2,13 @@ using System;
 
 namespace Xabbo.GEarth;
 
+/// <summary>
+/// Specifies the options used to connect to G-Earth.
+/// </summary>
+/// <param name="Host">The host to connect to.</param>
+/// <param name="Port">The extension port to connect on.</param>
+/// <param name="FileName">The filename of the extension.</param>
+/// <param name="Cookie">The cookie value provided by and used to authenticate with G-Earth.</param>
 public readonly record struct GEarthConnectOptions(
     string? Host = null,
     int? Port = null,

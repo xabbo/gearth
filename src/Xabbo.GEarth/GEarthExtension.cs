@@ -66,7 +66,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
     };
 
     /// <summary>
-    /// Sets the value of the specified field and raises the <see cref="PropertyChanged"/> event if the value was changed.
+    /// Sets the value of the specified field and raises the <see cref="PropertyChanged"/> event, if the value was changed.
     /// </summary>
     /// <typeparam name="T">The type of the field.</typeparam>
     /// <param name="field">The backing field.</param>
@@ -130,7 +130,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
     protected virtual void OnIntercepted(Intercept e) => Intercepted?.Invoke(e);
 
     /// <summary>
-    /// Invoked when the extension is selected in G-Earth's user interface.
+    /// Occurs when the extension is selected in G-Earth's user interface.
     /// </summary>
     public event Action? Activated;
     protected virtual void OnActivated() => Activated?.Invoke();
