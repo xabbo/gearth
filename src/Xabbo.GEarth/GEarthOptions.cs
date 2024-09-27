@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 
 namespace Xabbo.GEarth;
 
@@ -17,7 +17,7 @@ public sealed record GEarthOptions
     /// </summary>
     public static GEarthOptions Default => new GEarthOptions()
         .WithAssemblyName()
-        .WithAssemblyVersion();
+        .WithAssemblyVersion(DefaultVersionFieldCount);
 
     /// <summary>
     /// The name of the extension.
