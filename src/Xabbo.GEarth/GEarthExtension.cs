@@ -56,8 +56,8 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         ExtensionConsoleLog = 98
     }
 
-    private static int ToPacketFormat(Header header) => header.Client switch {
-        ClientType.Shockwave => header.Direction switch {
+    private static int ToPacketFormat(IPacket packet) => packet.Client switch {
+        ClientType.Shockwave => packet.Header.Direction switch {
             Direction.In => 1,
             Direction.Out => 2,
             _ => 0,
@@ -255,10 +255,14 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         if (packet.Header.Direction != Direction.In && packet.Header.Direction != Direction.Out)
             throw new InvalidOperationException("Invalid packet direction.");
 
-        if (packet.Header.Client != Session.Client.Type)
-            throw new InvalidOperationException($"Invalid client {packet.Header.Client} on header, must be same as session: {Session.Client.Type}.");
+        if (packet.Client != Session.Client.Type)
+            throw new InvalidOperationException($"Invalid client {packet.Client} on packet, must be same as session: {Session.Client.Type}.");
 
-        using Packet p = new((Direction.Out, (short)GOutgoing.SendMessage), capacity: 11 + packet.Length);
+        using Packet p = new(
+            (Direction.Out, (short)GOutgoing.SendMessage),
+            ClientType.None,
+            new PacketBuffer(11 + packet.Length)
+        );
         p.Write((byte)(packet.Header.Direction == Direction.Out ? 1 : 0));
 
         if (Session.Client.Type == ClientType.Shockwave)
@@ -276,7 +280,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             p.Write(packet.Header.Value);
         }
         p.WriteSpan(packet.Buffer.Span);
-        p.Write(ToPacketFormat(packet.Header));
+        p.Write(ToPacketFormat(packet));
         SendInternal(p);
     }
 
@@ -374,7 +378,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
                 {
                     using Packet packet = new(
                         (Direction.In, ParsePacketHeader(data)),
-                        data.Slice(2, data.Length - 2)
+                        buffer: new(data.Slice(2, data.Length - 2))
                     );
                     HandlePacket(packet);
                 }
@@ -466,7 +470,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
     {
         Log.LogDebug("Extension information requested by G-Earth.");
 
-        using Packet p = new((Direction.Out, (short)GOutgoing.Info), capacity: 256);
+        using Packet p = new((Direction.Out, (short)GOutgoing.Info), buffer: new(256));
 
         p.Write(
             Options.Name, Options.Author,
@@ -542,10 +546,10 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             headerValue = BinaryPrimitives.ReadInt16BigEndian(packetSpan[4..6]);
         }
 
-        Header header = new(Session.Client.Type, direction, headerValue);
+        Header header = new(direction, headerValue);
 
         return (
-            new Packet(header, packetSpan[dataOffset..]) { Context = this },
+            new Packet(header, Session.Client.Type, new(packetSpan[dataOffset..])) { Context = this },
             sequence, isBlocked, isModified
         );
     }
@@ -574,14 +578,14 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             {
                 string messageName = "?";
                 if (Messages.TryGetNames(unmodifiedHeader, out MessageNames names))
-                    messageName = names.GetName(unmodifiedHeader.Client) ?? "?";
+                    messageName = names.GetName(Session.Client.Type) ?? "?";
                 Log.LogError(ex, "Unhandled exception in handler {Header} ({MessageName}): {Error}",
                     unmodifiedHeader, messageName, ex.InnerException?.Message);
                 throw;
             }
 
-            if (packet.Header.Client != Session.Client.Type)
-                throw new InvalidOperationException($"Invalid client {packet.Header.Client} on header, must be same as session: {Session.Client.Type}.");
+            if (packet.Client != Session.Client.Type)
+                throw new InvalidOperationException($"Invalid client {packet.Client} on packet, must be same as session: {Session.Client.Type}.");
 
             isModified =
                 isModified ||
@@ -594,7 +598,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
             using Packet response = new(
                 (Direction.Out, (short)GOutgoing.ManipulatedPacket),
-                capacity: 23 + sequenceBytes + packet.Length
+                buffer: new(23 + sequenceBytes + packet.Length)
             );
 
             // packet length placeholder
@@ -623,7 +627,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             response.WriteSpan(packet.Buffer.Span);
             response.WriteAt(0, response.Length - 4);
 
-            response.Write(ToPacketFormat(packet.Header));
+            response.Write(ToPacketFormat(packet));
 
             SendInternal(response);
         }
