@@ -189,7 +189,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         Messages = messages ?? new MessageManager(null, loggerFactory);
         Dispatcher = new MessageDispatcher(this);
 
-        options ??= GEarthOptions.Default;
+        options ??= new();
 
         if (this is IExtensionInfoInit init)
         {

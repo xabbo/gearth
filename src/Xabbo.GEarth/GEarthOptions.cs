@@ -7,17 +7,25 @@ namespace Xabbo.GEarth;
 /// </summary>
 public sealed record GEarthOptions
 {
-    /// <summary>
-    /// The number of version fields to be included when converting the assembly version to a string for <see cref="Default"/>.
-    /// </summary>
-    public static int DefaultVersionFieldCount { get; set; } = 3;
+    public GEarthOptions()
+    {
+        if (Assembly.GetEntryAssembly() is { } assembly)
+        {
+            string? version = assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                .InformationalVersion;
 
-    /// <summary>
-    /// Gets the default options with the entry assembly's name and version.
-    /// </summary>
-    public static GEarthOptions Default => new GEarthOptions()
-        .WithAssemblyName()
-        .WithAssemblyVersion(DefaultVersionFieldCount);
+            if (assembly.GetName() is { } assemblyName)
+            {
+                if (assemblyName.Name is string name)
+                    Name = name;
+                version ??= assemblyName.Version?.ToString(3);
+            }
+
+            if (version is not null)
+                Version = version;
+        }
+    }
 
     /// <summary>
     /// The name of the extension.
@@ -37,7 +45,7 @@ public sealed record GEarthOptions
     /// <summary>
     /// The version of the extension.
     /// </summary>
-    public string Version { get; init; } = "alpha";
+    public string Version { get; init; } = "(no version)";
 
     /// <summary>
     /// Specifies whether to show the leave button in G-Earth.
@@ -50,34 +58,4 @@ public sealed record GEarthOptions
     /// Defaults to <c>true</c>.
     /// </summary>
     public bool ShowDeleteButton { get; init; } = true;
-
-    /// <summary>
-    /// Creates a new <see cref="GEarthOptions"/> with the <see cref="Name"/>
-    /// changed to the name of the current assembly.
-    /// </summary>
-    public GEarthOptions WithAssemblyName() => this with
-    {
-        Name = Assembly.GetEntryAssembly()?.GetName().Name ?? "unknown",
-    };
-
-    /// <summary>
-    /// Creates a new <see cref="GEarthOptions"/> with the <see cref="Version"/>
-    /// changed to the version of the current assembly.
-    /// </summary>
-    /// <param name="fieldCount">The number of fields to include in the version.</param>
-    public GEarthOptions WithAssemblyVersion(int fieldCount = 3) => this with
-    {
-        Version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(fieldCount) ?? "unknown"
-    };
-
-    /// <summary>
-    /// Creates a new <see cref="GEarthOptions"/> with the <see cref="Version"/>
-    /// changed to the informational version of the current assembly.
-    /// </summary>
-    public GEarthOptions WithInformationalVersion() => this with
-    {
-        Version = Assembly.GetEntryAssembly()?
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
-            .InformationalVersion ?? "unknown"
-    };
 }
