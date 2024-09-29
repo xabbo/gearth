@@ -15,7 +15,7 @@ on:
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
   DOTNET_NOLOGO: true
-  PackageName: Xabbo.GEarth
+  PackageProjectDirectory: src/Xabbo.GEarth
   PackageDirectory: ${{ github.workspace }}/pkg
 
 jobs:
@@ -39,7 +39,7 @@ jobs:
       run: dotnet test --configuration Release --no-build --verbosity normal
     - name: Pack
       if: github.event_name == 'release'
-      run: dotnet pack ${{ env.PackageName }} --configuration Release --no-build --output ${{ env.PackageDirectory }}
+      run: dotnet pack ${{ env.PackageProjectDirectory }} --configuration Release --no-build --output ${{ env.PackageDirectory }}
     - uses: actions/upload-artifact@v4
       if: github.event_name == 'release'
       with:
