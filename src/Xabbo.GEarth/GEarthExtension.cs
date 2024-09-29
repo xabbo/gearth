@@ -111,11 +111,11 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
     public CancellationToken DisconnectToken => _ctsDisconnect.Token;
 
     #region - Events -
-    public event Action<InitializedArgs>? Initialized;
-    protected virtual void OnInitialized(InitializedArgs e) => Initialized?.Invoke(e);
+    public event Action<InitializedEventArgs>? Initialized;
+    protected virtual void OnInitialized(InitializedEventArgs e) => Initialized?.Invoke(e);
 
-    public event Action<GameConnectedArgs>? Connected;
-    protected virtual void OnConnected(GameConnectedArgs e) => Connected?.Invoke(e);
+    public event Action<ConnectedEventArgs>? Connected;
+    protected virtual void OnConnected(ConnectedEventArgs e) => Connected?.Invoke(e);
 
     public event Action? Disconnected;
     protected virtual void OnDisconnected()
@@ -269,7 +269,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         {
             // length of (header + data)
             p.Write(2 + packet.Length);
-            B64.Encode(p.Buffer.Allocate(p.Position, 2), packet.Header.Value);
+            B64.Encode(p.Buffer.Allocate(p.Position, 2), (B64)packet.Header.Value);
             p.Position += 2;
         }
         else
@@ -538,7 +538,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         if (Session.Client.Type == ClientType.Shockwave)
         {
             dataOffset = 2;
-            headerValue = B64.Decode(packetSpan[0..2]);
+            headerValue = (short)(ushort)B64.Decode(packetSpan[0..2]);
         }
         else
         {
@@ -616,7 +616,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
             response.Write((byte)(isModified ? '1' : '0'));
             if (Session.Client.Type == ClientType.Shockwave)
             {
-                B64.Encode(response.Allocate(2), packet.Header.Value);
+                B64.Encode(response.Allocate(2), (B64)packet.Header.Value);
             }
             else
             {
@@ -675,7 +675,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         Session = new(hotel, new Client(clientType, clientIdentifier, clientVersion));
         IsConnected = true;
 
-        OnConnected(new GameConnectedArgs
+        OnConnected(new ConnectedEventArgs
         {
             Host = host,
             Port = port,
@@ -708,7 +708,7 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
         Log.LogInformation("Extension initialized by G-Earth. (game connected: {Connected})", isGameConnected);
 
-        OnInitialized(new InitializedArgs(isGameConnected));
+        OnInitialized(new InitializedEventArgs(isGameConnected));
     }
 
     /// <summary>
