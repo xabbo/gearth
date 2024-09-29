@@ -1,24 +1,62 @@
 name: .NET
 
-on: [push, pull_request]
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+  release:
+    types:
+      - published
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: true
+  PackageName: Xabbo.GEarth
+  PackageDirectory: ${{ github.workspace }}/pkg
 
 jobs:
+
   build:
-
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        submodules: 'true'
     - name: Setup .NET
-      uses: actions/setup-dotnet@v2
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
-      run: dotnet build --no-restore
+      run: dotnet build --configuration Release --no-restore
     - name: Test
-      run: dotnet test --no-build --verbosity normal
+      run: dotnet test --configuration Release --no-build --verbosity normal
+    - name: Pack
+      if: github.event_name == 'release'
+      run: dotnet pack ${{ env.PackageName }} --configuration Release --no-build --output ${{ env.PackageDirectory }}
+    - uses: actions/upload-artifact@v4
+      if: github.event_name == 'release'
+      with:
+        name: nupkg
+        if-no-files-found: error
+        retention-days: 7
+        path: ${{ env.PackageDirectory }}/*.nupkg
+
+  deploy:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs: [ build ]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: ${{ env.PackageDirectory }}
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+      - name: Publish NuGet package
+        run: dotnet nuget push "${{ env.PackageDirectory }}/*.nupkg" --api-key "${{ secrets.XABBO_NUGET_APIKEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
