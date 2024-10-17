@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Diagnostics.CodeAnalysis;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -501,7 +502,8 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
      *   1 - Wedgie Incoming (Shockwave)
      *   2 - Wedgie Outgoing (Shockwave)
      */
-    private (IPacket packet, int sequence, bool isBlocked, bool isModified) ParseInterceptArgs(Packet packet)
+    private bool TryParseInterceptArgs(Packet packet,
+        [NotNullWhen(true)] out IPacket? parsed, out int sequence, out bool isBlocked, out bool isModified)
     {
         ReadOnlySpan<byte> packetBuffer = packet.Buffer.Span;
 
@@ -523,10 +525,10 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
         if (current != tabs.Length)
             throw new FormatException("Invalid packet intercept data (insufficient delimiter bytes).");
 
-        bool isBlocked = data[0] == '1';
-        int sequence = int.Parse(data[(tabs[0]+1)..tabs[1]]);
+        isBlocked = data[0] == '1';
+        sequence = int.Parse(data[(tabs[0]+1)..tabs[1]]);
         bool isOutgoing = data[tabs[1] + 3] == 'S';
-        bool isModified = data[tabs[2] + 1] == '1';
+        isModified = data[tabs[2] + 1] == '1';
 
         Direction direction = isOutgoing ? Direction.Out : Direction.In;
 
@@ -537,6 +539,14 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
         if (Session.Client.Type == ClientType.Shockwave)
         {
+            if (packetSpan.Length < 2 ||
+                (packetSpan[0] & 0xc0) != 0x40 ||
+                (packetSpan[1] & 0xc0) != 0x40)
+            {
+                parsed = null;
+                return false;
+            }
+
             dataOffset = 2;
             headerValue = (short)(ushort)B64.Decode(packetSpan[0..2]);
         }
@@ -548,15 +558,21 @@ public partial class GEarthExtension : IRemoteExtension, IInterceptorContext, IN
 
         Header header = new(direction, headerValue);
 
-        return (
-            new Packet(header, Session.Client.Type, new(packetSpan[dataOffset..])) { Context = this },
-            sequence, isBlocked, isModified
-        );
+        parsed = new Packet(header, Session.Client.Type, new(packetSpan[dataOffset..])) { Context = this };
+        return true;
     }
 
     private void HandlePacketIntercept(Packet rawPacketIntercept)
     {
-        var (packet, sequence, isBlocked, isModified) = ParseInterceptArgs(rawPacketIntercept);
+        if (!TryParseInterceptArgs(rawPacketIntercept,
+            out IPacket? packet, out int sequence, out bool isBlocked, out bool isModified))
+        {
+            // Failed to parse intercept args, return the packet back to G-Earth as-is.
+            rawPacketIntercept.Header = (Direction.Out, (short)GOutgoing.ManipulatedPacket);
+            SendInternal(rawPacketIntercept);
+            return;
+        }
+
         using IPacket originalPacket = packet;
 
         try
