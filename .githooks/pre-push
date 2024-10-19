@@ -1,7 +1,10 @@
 #!/bin/sh
 
 pop_stash() { git stash pop -q ; }
+stash_count=$(git stash list | wc -l)
 git stash push -q --include-untracked
-trap pop_stash EXIT
+if [[ $stash_count != $(git stash list | wc -l) ]]; then
+  trap pop_stash EXIT
+fi
 
 dotnet build && dotnet test --no-build
