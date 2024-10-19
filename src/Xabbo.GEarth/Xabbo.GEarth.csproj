@@ -11,7 +11,7 @@
 
   <PropertyGroup Label="Package">
     <PackageId>Xabbo.GEarth</PackageId>
-    <PackageProjectUrl>https://xabbo.b7c.io/gearth</PackageProjectUrl>
+    <PackageProjectUrl>https://xabbo.io</PackageProjectUrl>
     <Description>A framework for creating G-Earth extensions.</Description>
     <RepositoryUrl>https://github.com/xabbo/gearth.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
